@@ -13,15 +13,15 @@
 // per home and a home is per machine -- see config.js -- so a "last opened"
 // kept here would be known on one laptop and not the other.)
 //
-// A cron field is the obvious next step and deliberately not here yet; a
-// working implementation is parked in tools/cron.js.
+// A cron field is the obvious next step and deliberately not here yet; `git log`
+// has a tested implementation of one if it is ever wanted.
 
 import { div } from "gpui-kit";
-import { appHome, exec, readTextFile, run, window as hostWindow } from "herdr";
+import { run } from "herdr";
 import { ago, agoShort, createIssue, rest } from "./github.js";
 import { repoOf } from "./config.js";
 import { CELL, cell, row, spinner } from "./kit.js";
-import * as yaml from "./yaml.js";
+import * as conf from "./conf.js";
 
 export const panel = "routines";
 export const title = "Routines";
@@ -44,19 +44,6 @@ const PAGE = 100;
 const ATTENTION = ["needs-decision", "awaiting-merge"];
 
 // ---- the file -------------------------------------------------------------
-
-/** In the installed mod folder, not in the repo: the repo's path differs per
- *  machine, and the installers leave this one file alone so that editing it
- *  takes effect on the next poll with no reinstall and no restart. */
-const filePath = () => `${appHome()}/mods/${MOD}/${FILE}`;
-
-async function read() {
-  const path = filePath();
-  const text = await readTextFile(path);
-  if (text === null) return { path, missing: true, config: {}, routines: [], problems: [] };
-  const { top, items, problems } = yaml.parse(text);
-  return { path, missing: false, config: top, routines: items, problems };
-}
 
 /** Everything §2 requires of a task, checked when the file is read rather than
  *  when ▶ is pressed: a routine missing its Goal is worth knowing about while
@@ -168,7 +155,7 @@ async function recent(repo) {
 const noFile = (path) => ({
   key: "no-file",
   title: `No ${FILE}`,
-  detail: "copy routines.example.yml next to it",
+  detail: "the gear writes one from the example",
   state: "invalid",
   error: path,
   def: null,
@@ -180,7 +167,7 @@ const noFile = (path) => ({
 });
 
 export async function load() {
-  const file = await read();
+  const file = await conf.read(FILE);
   const problems = [...file.problems];
 
   if (file.missing) {
@@ -211,8 +198,8 @@ export async function load() {
   const items = [];
   const seen = new Set();
 
-  for (let n = 0; n < file.routines.length; n++) {
-    const r = file.routines[n];
+  for (let n = 0; n < file.items.length; n++) {
+    const r = file.items[n];
     const bad = validate(r, n, seen);
     const named = String(r.title ?? "").trim();
     if (named) seen.add(named);
@@ -295,31 +282,11 @@ export async function act(item) {
   run(`${MOD}.refresh`);
 }
 
-/**
- * The gear: hands routines.yml to whatever opens a .yml here. The file is the
- * whole configuration surface of this panel, so the header points at it rather
- * than making you remember a path inside the Herdr home.
- *
- * `cx.open_url` cannot do it. It takes an absolute http/https URL and refuses
- * every other scheme on purpose, so that a mod cannot hand an arbitrary URI to
- * whichever handler the desktop registered for it (gpui-kit.d.ts) -- and that
- * rules out `file://`. Hence a program, and hence the third place in this mod
- * that knows which platform it is on, after finding `gh` and offering to
- * install it.
- *
- * With nothing registered for .yml the desktop asks which program to use. That
- * is the right question for it to ask, and not one this can answer.
- */
-export async function configure() {
-  const path = filePath();
-  const platform = hostWindow()?.platform;
-  // `start` is a cmd builtin rather than a program, and exec runs programs. Its
-  // first argument is the window title, which it otherwise takes from the path
-  // -- leaving it with no path to open.
-  if (platform === "windows") return void (await exec("cmd", ["/c", "start", "", path]));
-  if (platform === "macos") return void (await exec("open", [path]));
-  return void (await exec("xdg-open", [path]));
-}
+/** The gear: routines.yml, in whatever opens a .yml here. The file is the whole
+ *  configuration surface of this panel, so the header points at it rather than
+ *  making you remember a path inside the Herdr home. See conf.js for why this
+ *  cannot go through `cx.open_url`. */
+export const configure = () => conf.openFile(FILE);
 
 export const configureTip = `Open ${FILE}`;
 

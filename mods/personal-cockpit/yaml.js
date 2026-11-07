@@ -1,13 +1,15 @@
-// A YAML reader for exactly the shape routines.yml has, and nothing else.
+// A YAML reader for exactly the shape this mod's config files have, and nothing
+// else: routines.yml and team.yml (see conf.js).
 //
 // The runtime ships no YAML parser -- `JSON.parse` is built in, YAML is not --
-// and vendoring js-yaml costs ~40KB of third-party bundle for a file with four
-// constructs in it. So this reads those four:
+// and vendoring js-yaml costs ~40KB of third-party bundle for a file with five
+// constructs in it. So this reads those five:
 //
 //   # comment              anywhere outside a block scalar
 //   key: value             at the top level, or inside a list item
 //   key:                   followed by `- ` items
 //   key: |                 a block scalar: every deeper line, dedented
+//   - value                a list item that is just a name, not a map
 //
 // Anything else is reported by line number rather than guessed at. That is the
 // whole reason this is hand-written: a parser that silently drops a line it did
@@ -53,10 +55,12 @@ function dedent(lines) {
 
 /**
  * `{ top, items, problems }` -- top-level scalars, the `- ` list under the
- * first key that has one, and everything that did not parse.
+ * first key that has one, and everything that did not parse. An item is a map,
+ * or a string where the file wrote a bare name.
  *
- * One list per file is all this shape needs, so the list key is remembered but
- * not nested: `routines:` and its items are the file.
+ * One list per file is all this shape needs, so the list key is not kept and
+ * the items are not nested under it: `routines:` and its maps are one file,
+ * `people:` and its names are the other.
  */
 export function parse(text) {
   const top = {};
@@ -121,15 +125,21 @@ export function parse(text) {
     const dash = line.match(/^(\s*)-\s+(.*)$/);
 
     if (dash) {
-      current = {};
-      items.push(current);
       const rest = dash[2];
       const kv = rest.match(KEY);
       i++;
       if (!kv) {
-        say(at, `expected "key: value" after the "-", found "${rest.trim()}"`);
+        // A list of plain names -- `- alice` under `people:`. Which kind of
+        // list a file has is the file's own business: routines are maps, people
+        // are names, and both arrive here as `- ` items. A map item that lost
+        // its key (`- Review flaky tests`) lands here too, and the panel that
+        // wanted a map says what is missing from it.
+        current = null;
+        items.push(scalar(rest));
         continue;
       }
+      current = {};
+      items.push(current);
       // The dash occupies the first two columns, so the item's keys sit two
       // deeper than the dash itself.
       assign(current, kv[1], kv[2], indent + 2, at);

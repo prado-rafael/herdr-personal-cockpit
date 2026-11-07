@@ -223,7 +223,12 @@ export function rail(t, icon, attention) {
 /** The header bar: title, then one of trouble / attention / a plain count, then
  *  refresh, dock and minimise. */
 export function header(t, o) {
-  const left = [div().flex_none().text_size(11.5).font_medium().text_color(t.dim).child(o.title)];
+  // The title shrinks and truncates rather than holding its width: "Team's
+  // pull requests" beside a `2 needs you` pill is wider than a 268px sidebar,
+  // and the pill is the half of that worth keeping.
+  const left = [
+    div().min_w(0).truncate().text_size(11.5).font_medium().text_color(t.dim).tooltip(o.title).child(o.title),
+  ];
   if (o.trouble) {
     left.push(div().flex_1().min_w(0).truncate().text_size(10.5).text_color(t.blocked).tooltip(o.troubleTip ?? o.trouble).child(o.trouble));
   } else if (o.attention > 0) {
@@ -304,6 +309,24 @@ export function sectionHead(t, label, count) {
  *  second line's text lands under the title however the glyph is drawn. */
 export const CELL = 11;
 export const cell = () => div().w(CELL).flex_none();
+
+// What a commit's check rollup means, in the two questions a row asks of it.
+// Shared because both pull request panels ask them and a second definition of
+// "a red build" is a second thing to keep in step.
+export const RED = (state) => state === "FAILURE" || state === "ERROR";
+export const RUNNING = (state) => state === "PENDING" || state === "EXPECTED";
+
+/** The first cell of a pull request's row: a tick when the checks passed, a
+ *  cross when they failed, the header's own spinner while they run, and a dot
+ *  for a head commit with no checks at all -- which is not a failure. */
+export function checkGlyph(t, state) {
+  if (RUNNING(state)) return spinner(t, CELL);
+  const red = RED(state);
+  return cell()
+    .text_center()
+    .text_color(red ? t.ansi1 : state === "SUCCESS" ? t.ansi2 : t.dim)
+    .child(red ? "✕" : state === "SUCCESS" ? "✓" : "·");
+}
 
 /** A two-line row: a glyph, a truncating title and an age; then, when there is
  *  room, a second line of whatever the panel wants to put there. */

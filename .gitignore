@@ -9,10 +9,14 @@ jsconfig.json
 # Clicks: sizes, hidden/shown, theme picks. Per machine, and the app owns them.
 layouts/.state/
 
-# Your routines, which live in the installed mod folder and are yours to edit --
-# the installers never overwrite them. Committed here only as
-# routines.example.yml, which install copies across on a first install.
+# Your routines and the people you watch, which live in the installed mod
+# folder and are yours to edit -- the installers never overwrite them.
+# Committed here only as the *.example.yml beside each, which install copies
+# across on a first install. Ignored here too because a junction install puts
+# the mod folder inside the Herdr home, which would make yours show up as an
+# untracked file in this repo.
 mods/personal-cockpit/routines.yml
+mods/personal-cockpit/team.yml
 
 # Herdr writes these into the home it installs to, not here, but a junction
 # install puts the mod folder *inside* the home -- so they can show up.

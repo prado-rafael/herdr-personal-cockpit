@@ -31,14 +31,15 @@ done
 
 dst=$herdr/mods/$name
 
-# routines.yml belongs to the person, not to the install: it is their schedule,
-# edited in place so a new routine never means reinstalling. The copy below
-# wipes the folder, so it is stashed across that and put back.
-keep=""
-if [ -f "$dst/routines.yml" ]; then
-  keep=$(mktemp)
-  cp -- "$dst/routines.yml" "$keep"
-fi
+# routines.yml and team.yml belong to the person, not to the install: they are
+# edited in place so that a new routine or a new teammate never means
+# reinstalling. The copy below wipes the folder, so they are stashed across it
+# and put back.
+confs="routines team"
+keep=$(mktemp -d)
+for c in $confs; do
+  [ -f "$dst/$c.yml" ] && cp -- "$dst/$c.yml" "$keep/$c.yml"
+done
 
 # A previous symlink install has to go before a copy can land. Removing the
 # link itself, never what it points at.
@@ -49,20 +50,25 @@ mkdir -p -- "$dst"
 for f in "$root/mods/$name"/*; do
   case $(basename -- "$f") in
     gpui-kit.d.ts|jsconfig.json) continue ;;   # the app writes these itself
-    routines.yml) continue ;;                  # the person's, restored below
+    routines.yml|team.yml) continue ;;         # the person's, restored below
   esac
   cp -- "$f" "$dst/"
 done
 echo "mod      -> $dst"
 
-if [ -n "$keep" ]; then
-  cp -- "$keep" "$dst/routines.yml"
-  rm -f -- "$keep"
-  echo "routines -> kept $dst/routines.yml"
-elif [ -f "$dst/routines.example.yml" ]; then
-  cp -- "$dst/routines.example.yml" "$dst/routines.yml"
-  echo "routines -> $dst/routines.yml (from the example)"
-fi
+# Theirs if they had one, the example if they did not: an install never
+# overwrites what somebody wrote. The gear in those panels seeds a file deleted
+# later, so the two ways in agree.
+for c in $confs; do
+  if [ -f "$keep/$c.yml" ]; then
+    cp -- "$keep/$c.yml" "$dst/$c.yml"
+    echo "config   -> kept $dst/$c.yml"
+  elif [ -f "$dst/$c.example.yml" ]; then
+    cp -- "$dst/$c.example.yml" "$dst/$c.yml"
+    echo "config   -> $dst/$c.yml (from the example)"
+  fi
+done
+rm -rf -- "$keep"
 
 if [ "$layout" -eq 1 ]; then
   # The .json and the .svg its "preview" field points at; the Settings picker
