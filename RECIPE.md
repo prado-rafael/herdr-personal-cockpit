@@ -45,7 +45,9 @@ Each panel is the same shape:
   pencil-square on Kraken Tasks only, then refresh (a `working` ring spinner
   while loading), a gear on Kraken Tasks only, dock-left/dock-right, and
   minus/plus. The pencil has a glyph of its own rather than a bare plus,
-  because a collapsed panel shows it next to the plus that expands.
+  because a collapsed panel shows it next to the plus that expands. The bar
+  itself is the minus/plus: it takes a `hover` background and a press anywhere
+  on it that is not one of those icons folds the panel.
 - A **list**, 6 px side padding, 1 px between rows, scrollbar on overflow.
   Group titles are 10 px semibold `dim` with a `muted` count beside them.
 - Each **row** is 10 px × 5 px, radius 6, `hover` background, tooltip with
@@ -139,7 +141,13 @@ Narrower than 160 px either panel drops to a **rail**: its icon, tinted
   there is still something to click. The height it had is remembered in
   `shared("cockpit.<panel>.height")` and given back on expand; a block never
   dragged gets `weight: 1` instead. Dragging the divider below 60 px counts as
-  minimised however it happened.
+  minimised however it happened. The whole header bar does it, not only the
+  13 px glyph: a stack of panels is opened and shut all day and the 41 px strip
+  is the target nobody has to aim at. The glyph stays, because it is the part
+  that says which way the next press goes. The icons beside it stop the press
+  (`cx.stop_propagation()` in `action`), so refreshing a panel does not also
+  fold it; the bar is only pressable where there is a block to resize, since a
+  pane or an overlay has no height to give back.
 - **Move** rewrites the layout tree through `layout.set`: the panel goes to the
   column holding the `spaces` mod, or to `right-lists`, which is created inside
   the row holding the tab block if it is missing. An emptied `right-lists` is
@@ -335,7 +343,8 @@ adding a connection to one of these, and do not estimate.
 - Dragging the sidebar below 160 px turns both panels into rails with their
   counts; widening restores the rows.
 - Minus collapses a panel to a 42 px header; plus returns it to the height it
-  had.
+  had. Pressing the header bar anywhere else does the same both ways, and
+  pressing refresh, the gear, the pencil or the dock arrow does not fold it.
 - The dock arrow moves a panel into the right column, which appears at 380 px;
   moving the last one out hides the column but keeps its width.
 - Killing the network mid-refresh leaves the rows on screen with `stale` in the
