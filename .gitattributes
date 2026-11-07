@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.png binary
+*.ttf binary
+*.otf binary
+*.mp3 binary
+# The app reads this one; PowerShell is fine with LF.
+*.ps1 text eol=lf

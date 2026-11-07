@@ -1,0 +1,24 @@
+# Written by the Herdr app into every mod folder on each start, never by hand.
+# jsconfig.json is "written once, then yours" -- but the app writes it the first
+# time it sees a folder, so a clone does not need it committed. gpui-kit.d.ts is
+# 811 KB of generated typings that must match the installed app version, so a
+# committed copy would be wrong for anyone on a different version.
+jsconfig.json
+*.d.ts
+
+# Clicks: sizes, hidden/shown, theme picks. Per machine, and the app owns them.
+layouts/.state/
+
+# Herdr writes these into the home it installs to, not here, but a junction
+# install puts the mod folder *inside* the home -- so they can show up.
+data/
+shared.json
+installed.json
+view.json
+window.json
+seen.json
+*.error
+*.reset-*
+*.corrupt-*
+herdr-app.sock
+herdr-shot.png
