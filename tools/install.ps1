@@ -32,9 +32,19 @@ if (Test-Path $dst) {
 
 # /MIR so a file deleted here is deleted there; the two the app writes into the
 # mod folder are left alone, since they belong to the installed version.
-robocopy $src $dst /MIR /XF gpui-kit.d.ts jsconfig.json /NFL /NDL /NJH /NJS /NP | Out-Null
+# routines.yml joins them for a different reason: it is the person's schedule,
+# edited in place so a new routine never means reinstalling. An /XF file is
+# excluded from the operation, so /MIR does not delete it either.
+robocopy $src $dst /MIR /XF gpui-kit.d.ts jsconfig.json routines.yml /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE" }
 Write-Host "mod      -> $dst"
+
+$routines = Join-Path $dst 'routines.yml'
+$example = Join-Path $dst 'routines.example.yml'
+if ((-not (Test-Path $routines)) -and (Test-Path $example)) {
+  Copy-Item $example $routines
+  Write-Host "routines -> $routines (from the example)"
+}
 
 if (-not $NoLayout) {
   # The .json and the .svg its "preview" field points at; the Settings picker

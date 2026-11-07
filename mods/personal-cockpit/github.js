@@ -90,6 +90,19 @@ export async function rest(path) {
   return answer(await exec(gh, args), args);
 }
 
+/** Opens an issue, and resolves with the one GitHub made.
+ *
+ *  Fields go as arguments rather than a JSON body on stdin, because `exec` has
+ *  no stdin: `-f` is gh's own string-field form, and `labels[]=` is how it
+ *  builds an array out of repeated flags. A multi-line body is fine in an
+ *  argument -- it is the shell that would have minded, and there is no shell. */
+export async function createIssue(repo, { title, body, labels = [] }) {
+  const gh = await resolve();
+  const args = ["api", "-X", "POST", `repos/${repo}/issues`, "-f", `title=${title}`, "-f", `body=${body}`];
+  for (const label of labels) args.push("-f", `labels[]=${label}`);
+  return answer(await exec(gh, args), args);
+}
+
 /** `owner/name` for every repo the login can push to, for the repo picker's
  *  suggestions. `owner` narrows it to one user or org -- which is how a repo on
  *  another account (a work org) becomes reachable at all, since a bare

@@ -1,0 +1,90 @@
+# Routines: kraken tasks you keep, instead of rewriting.
+#
+# Copy this to `routines.yml` beside it and edit that. The installers never
+# touch `routines.yml`, so a new routine takes effect on the next poll -- no
+# reinstall, no restart. This example file *is* overwritten on install, so keep
+# your own routines out of it.
+#
+# A routine does not run anything, and nothing here is scheduled. Press ▶ in the
+# panel and it opens the task in the coordination repo; a worker claims it from
+# there and the issue timeline is the record of what happened. While a routine's
+# task is still open its ▶ is gone -- two workers on one goal would deliver the
+# same work twice. Close the task to run it again.
+
+
+# ---- file settings --------------------------------------------------------
+
+# The coordination repo: the private repo whose Issues are the queue. Optional
+# -- without it, the repo picked in the Kraken Tasks panel is used, which is
+# normally the same one.
+coordination_repo: rafael-adcp/personal-tasks
+
+
+# ---- the routines ---------------------------------------------------------
+#
+# Only `priority`, `notes` and `enabled` are optional. The rest are not a style
+# preference: PROTOCOL.md §2 makes Goal, Acceptance and exactly one
+# `project:<name>` mandatory, because a task with no project is invisible to
+# every worker and one with an empty Goal stalls whoever claims it. The panel
+# checks all of that when it reads this file, so a broken routine says so in the
+# row rather than at the moment you press ▶.
+#
+#   title        what you read in the queue, and the routine's identity: it is
+#                written into every task this routine opens, which is how the
+#                panel knows whose task is whose. Renaming it while a task is
+#                open loses that link -- the ▶ comes back and a second task can
+#                be opened. The loose one is in Kraken Tasks; close one of them.
+#   project      the `project:<name>` label. Must match what the workers are
+#                prepared for.
+#   priority     `high` sorts the task first in the claim order (§5.2). Omit for
+#                normal.
+#   goal         the desired end state, as an outcome.
+#   acceptance   executable, observable proof. A worker must run it for real
+#                before it may deliver, so make it something that can be run.
+#   notes        constraints and gotchas. Optional.
+#   enabled      `false` keeps the routine listed with no ▶ -- for one you are
+#                still writing.
+
+routines:
+  - title: Review flaky tests
+    project: my_app
+    priority: high
+
+    goal: |
+      No test in tests/ fails intermittently. A test that cannot be made
+      deterministic is marked skip with a comment saying what is racy about
+      it, so the next person does not rediscover it.
+
+    acceptance: |
+      `make test` three times in a row, green all three. Paste the three
+      summary lines into the delivery comment.
+
+      If anything was marked skip, list each one with its reason.
+
+    notes: |
+      Do not touch tests/fixtures/ -- the goldens there are checked against
+      production data and a regenerated fixture hides the bug it was proving.
+
+  - title: Prune merged branches
+    project: my_app
+
+    goal: |
+      No remote branch remains whose commits are all already on main.
+      Anything unmerged is left alone, however old.
+
+    acceptance: |
+      `git branch -r --merged origin/main` lists only origin/main.
+      Quote the deleted branch names in the delivery comment.
+
+  # Listed with no button: a routine still being written, or one parked.
+  - title: Audit dependency licences
+    project: my_app
+    enabled: false
+
+    goal: |
+      Every direct dependency's licence is recorded in docs/licences.md with
+      the version it was checked at.
+
+    acceptance: |
+      docs/licences.md names every entry in the manifest, and the file's own
+      check (`make licences`) passes.
