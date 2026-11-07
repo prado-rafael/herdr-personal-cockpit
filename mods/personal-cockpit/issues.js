@@ -7,7 +7,7 @@
 // `rafael-adcp/personal-tasks` was baked in here until this mod moved to a repo.
 
 import { div } from "gpui-kit";
-import { rest, ago, agoShort } from "./github.js";
+import { rest, issueTemplates, ago, agoShort } from "./github.js";
 import { row } from "./kit.js";
 
 export const panel = "issues";
@@ -65,6 +65,10 @@ export function save(repo, items, at) {
   }
 }
 
+// Which templates a repo offers changes about never, so it is looked up once
+// per repo per run rather than on every 60-second poll.
+const templates = new Map();
+
 /** `{ items, meta }`. Throws with a `kind` from github.js -- including
  *  "not-found", which for a private repo is what no access looks like. */
 export async function load({ repo }) {
@@ -74,7 +78,41 @@ export async function load({ repo }) {
   if (!Array.isArray(body)) throw new Error("Unexpected response from GitHub");
   // `is:issue`: the issues endpoint returns pull requests too.
   const items = body.filter((i) => !i.pull_request).map(slim);
-  return { items, meta: { limited: items.length >= PER_PAGE, perPage: PER_PAGE } };
+  if (!templates.has(repo)) templates.set(repo, await issueTemplates(repo));
+  return {
+    items,
+    meta: { limited: items.length >= PER_PAGE, perPage: PER_PAGE, templates: templates.get(repo) ?? [] },
+  };
+}
+
+export const newLabel = "New task";
+
+// kraken installs its issue form at exactly this path -- `workflow.py` maps
+// `task-template.yml` to `.github/ISSUE_TEMPLATE/task.yml`, and its
+// conformance test asserts that destination. So in a repo kraken initialised
+// the name is a contract, not a guess, and it wins even where other forms
+// exist beside it: a bug report is not a kraken task.
+const KRAKEN_FORM = "task.yml";
+
+/** Where the New task button goes.
+ *
+ *  `props.template` first, for a layout that insists. Then kraken's own form.
+ *  Then a lone template, since a repo with one form means it. Then GitHub's
+ *  chooser, because picking among several unknown forms would be wrong about
+ *  half the time. A repo with no forms at all gets a blank issue.
+ *
+ *  Resolved against the templates the repo really has, so a repo that was
+ *  never `kraken init`-ed does not get a link to a form that isn't there. */
+export function newUrl(repo, meta, pin) {
+  const base = `https://github.com/${repo}/issues/new`;
+  const form = (name) => `${base}?template=${encodeURIComponent(name)}`;
+  if (typeof pin === "string" && pin) return form(pin);
+  const found = meta?.templates ?? [];
+  const kraken = found.find((n) => n.toLowerCase() === KRAKEN_FORM);
+  if (kraken) return form(kraken);
+  if (found.length === 1) return form(found[0]);
+  if (found.length > 1) return `${base}/choose`;
+  return base;
 }
 
 export function sections(items) {

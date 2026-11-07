@@ -36,6 +36,9 @@ export class List {
     const p = props() ?? {};
     this.source = SOURCES[p.kind] ?? pulls;
     this.node = p.node ?? null;
+    // Only for a repo with several issue forms where the layout wants one
+    // named; with none or one, the right answer is found rather than told.
+    this.template = p.template ?? null;
     this.heightKey = `cockpit.${this.source.panel}.height`;
 
     this.items = [];
@@ -69,6 +72,7 @@ export class List {
         if (command === "focus") this.handle.focus();
         else if (command === "refresh") this.refresh(cx);
         else if (command === "configure") this.configure();
+        else if (command === "new") this.openNew(cx);
         cx.notify();
       }
     });
@@ -167,6 +171,18 @@ export class List {
     if (item?.url) cx.open_url(item.url);
   }
 
+  /** Where "New task" points, or null for a panel that makes nothing (pull
+   *  requests come from a branch, not a form) or one with no repo yet. */
+  newUrl() {
+    if (!this.source.newUrl || !this.repo) return null;
+    return this.source.newUrl(this.repo, this.meta, this.template);
+  }
+
+  openNew(cx) {
+    const url = this.newUrl();
+    if (url) cx.open_url(url);
+  }
+
   // ---- ui -----------------------------------------------------------------
 
   // Not an empty panel: say what's missing and hand over the thing that fixes it.
@@ -236,6 +252,7 @@ export class List {
     const selected = pickable[this.at] ?? null;
     const attention = source.attention(this.items);
     const pinned = source.needsRepo && repoOf(source.panel).pinned;
+    const newTask = this.newUrl();
 
     const trouble =
       this.state === "no-repo" ? "no repo"
@@ -264,6 +281,8 @@ export class List {
             // A layout that pinned the repo meant that block to be that repo.
             onConfigure: source.needsRepo && !pinned ? () => this.configure() : null,
             configureTip: this.repo ? `Watching ${this.repo} — change it` : "Choose a repository",
+            onNew: newTask ? (c) => this.openNew(c) : null,
+            newTip: `${source.newLabel} in ${this.repo}`,
             onRefresh: (c) => this.refresh(c),
             onMove: (side) => moveTo(host, side),
             onMinimise: () => minimise(host, collapsed, this.heightKey),
@@ -274,14 +293,18 @@ export class List {
       if (this.state !== "ok" && this.state !== "loading") {
         body.push(this.setup(t));
       } else if (!rows.length) {
-        body.push(
-          div()
-            .px(16)
-            .pb(6)
-            .text_size(12)
-            .text_color(t.dim)
-            .child(this.state === "loading" ? source.loading : source.empty),
-        );
+        // An empty queue is the good case, so it gets the way to fill it
+        // rather than only the news that it is empty.
+        const idle = v_flex()
+          .px(16)
+          .pb(10)
+          .gap(8)
+          .items_start()
+          .child(div().text_size(12).text_color(t.dim).child(this.state === "loading" ? source.loading : source.empty));
+        if (newTask && this.state !== "loading") {
+          idle.child(button(t, `cockpit-${source.panel}-new-empty`, source.newLabel, (_e, cx) => this.openNew(cx)));
+        }
+        body.push(idle);
       } else {
         body.push(
           v_flex()
@@ -344,6 +367,11 @@ export class List {
         }
         if (e.key === "c" && source.needsRepo && !pinned) {
           this.configure();
+          cx.stop_propagation();
+          return;
+        }
+        if (e.key === "n" && newTask) {
+          this.openNew(cx);
           cx.stop_propagation();
           return;
         }

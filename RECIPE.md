@@ -33,9 +33,11 @@ Each panel is the same shape:
 - A **41 px header**: the title in 11.5 px `dim`; then one of a red `blocked`
   pill reading `N needs you`, a 10.5 px `blocked` word naming trouble
   (`no repo`, `gh missing`, `sign in`, `no access`, `failed`, `stale`), or a
-  plain 10 px `muted` count. Right-aligned, 13 px icons, 8 px apart: refresh
-  (a `working` ring spinner while loading), a gear on Kraken Tasks only,
-  dock-left/dock-right, and minus/plus.
+  plain 10 px `muted` count. Right-aligned, 13 px icons, 8 px apart: a
+  pencil-square on Kraken Tasks only, then refresh (a `working` ring spinner
+  while loading), a gear on Kraken Tasks only, dock-left/dock-right, and
+  minus/plus. The pencil has a glyph of its own rather than a bare plus,
+  because a collapsed panel shows it next to the plus that expands.
 - A **list**, 6 px side padding, 1 px between rows, scrollbar on overflow.
   Group titles are 10 px semibold `dim` with a `muted` count beside them.
 - Each **row** is 10 px × 5 px, radius 6, `hover` background, tooltip with
@@ -92,6 +94,17 @@ Narrower than 160 px either panel drops to a **rail**: its icon, tinted
 - **Keyboard.** With the panel focused (`pane.go` reaches it, `focusable` is
   true): `↑`/`↓` move a selection that draws with the `selected` background,
   `enter` opens it, `r` refreshes, `c` opens the repo dialog.
+- **New task.** The pencil, `n` with the keyboard, or the button that appears
+  under "No open tasks", opens the watched repo's new-issue form in the
+  browser. Which form is resolved against the templates the repo really has:
+  `task.yml` wins when present — kraken installs its issue form at exactly
+  `.github/ISSUE_TEMPLATE/task.yml` (`workflow.py` maps it there, and the
+  conformance test asserts that destination), so it is taken even with other
+  forms beside it, a bug report not being a kraken task. Failing that: a lone
+  template whatever its name, else `/issues/new/choose`, else a blank
+  `/issues/new`. The template list is fetched once per repo per run, not per
+  poll. `props.template` overrides the lot. Pull requests has no such button:
+  a PR comes from a branch, not a form.
 - **Click** opens the row in the system browser (`cx.open_url`). GitHub stays
   the place to act on a PR or an issue; this is the "what needs me" view.
 - **Minimise** resizes the block to 42 px — the header bar and nothing else, so
@@ -125,7 +138,7 @@ mods/personal-cockpit/
   mod.json     { place: "none", title: "Cockpit", focusable: true,
                  overlay: { kind: "dialog", width: 420 } }
   *.svg        pulls, issues, refresh, plus, minus, dock-left, dock-right,
-               settings
+               settings, new-task
 ```
 
 One mod, eight modules. Two layout blocks point at it with
@@ -141,8 +154,10 @@ folder of its own.
 **`herdr` functions:** `exec`, `layout`, `run`, `props`, `shared`, `setShared`,
 `theme`, `openOverlay`, `closeOverlay`, `nextCommand`.
 **Commands:** `layout.resize`, `layout.set`, `terminal.open`.
-**Programs:** `gh` — `api graphql`, `api repos/…/issues`, `repo list`,
-`auth login`, `--version`. Nothing else, and nothing writes.
+**Programs:** `gh` — `api graphql`, `api repos/…/issues`,
+`api repos/…/contents/.github/ISSUE_TEMPLATE`, `repo list`, `auth login`,
+`--version`. Nothing else, and nothing writes: New task opens a browser, it
+does not file the issue.
 
 **GraphQL cost:** `viewer.pullRequests(first: 30)` with ~50 child nodes each is
 about 20 rate-limit points a call, against 5,000 an hour. At 180 s that is
@@ -232,3 +247,7 @@ about 20 rate-limit points a call, against 5,000 an hour. At 180 s that is
   header, not an empty panel.
 - `↑`/`↓` move the selection in both panels and `enter` opens the selected row
   in the browser.
+- The pencil on Kraken Tasks opens `…/issues/new?template=task.yml` for the
+  watched repo, and Pull requests has no pencil at all.
+- Pointed at a repo with no issue templates, New task still works and lands on
+  a blank new-issue form.

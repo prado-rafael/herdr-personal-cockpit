@@ -235,9 +235,16 @@ export function header(t, o) {
     left.push(div().flex_none().text_size(10).text_color(t.dim).truncate().tooltip(o.noteTip ?? o.note).child(o.note));
   }
 
-  const actions = [
+  const actions = [];
+  // First, because it is the one thing here that makes something rather than
+  // looks at something. Its own glyph, not the bare plus the expand button
+  // uses: a collapsed panel shows both at once.
+  if (o.onNew) {
+    actions.push(action(t, `${o.id}-new`, o.newTip, "mods/personal-cockpit/new-task.svg", (_e, cx) => o.onNew(cx)));
+  }
+  actions.push(
     o.busy ? spinner(t) : action(t, `${o.id}-refresh`, o.stamp, "mods/personal-cockpit/refresh.svg", (_e, cx) => o.onRefresh(cx)),
-  ];
+  );
   if (o.onConfigure) {
     actions.push(action(t, `${o.id}-configure`, o.configureTip ?? "Settings", "mods/personal-cockpit/settings.svg", (_e, cx) => o.onConfigure(cx)));
   }

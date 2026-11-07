@@ -111,6 +111,24 @@ export async function repoList(owner = null, limit = 100) {
   }
 }
 
+/** The issue-form templates a repo offers, by file name, newest API shape
+ *  first. `config.yml` is the chooser's own settings, not a template.
+ *
+ *  Resolves with [] for a repo with no `.github/ISSUE_TEMPLATE` folder, which
+ *  GitHub answers with a 404 — the same answer as no access, and harmless
+ *  either way: no templates just means a blank new-issue form. */
+export async function issueTemplates(repo) {
+  try {
+    const body = await rest(`repos/${repo}/contents/.github/ISSUE_TEMPLATE`);
+    if (!Array.isArray(body)) return [];
+    return body
+      .filter((f) => f.type === "file" && /\.(ya?ml|md)$/i.test(f.name) && f.name.toLowerCase() !== "config.yml")
+      .map((f) => f.name);
+  } catch {
+    return [];
+  }
+}
+
 /** The signed-in login, or null. Cheap and cached: the header shows it in a
  *  tooltip, and it is how "signed in at all" gets answered without a panel
  *  having to interpret an error. */

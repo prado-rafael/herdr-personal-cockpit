@@ -81,6 +81,24 @@ useful for showing two task panels at once:
 "props": { "kind": "issues", "node": "work-issues", "repo": "org/work-tasks" }
 ```
 
+## Adding a task
+
+The pencil in the Kraken Tasks header, `n` with the keyboard, or the button
+under "No open tasks" when the queue is empty. It opens the new-issue form for
+the repo you are watching, in the browser.
+
+Which form it lands on is resolved against the templates the repo really has:
+
+| The repo's `.github/ISSUE_TEMPLATE` | Where the button goes |
+|---|---|
+| has `task.yml` | straight into it — kraken installs its issue form at exactly that path, so in a repo `kraken init` touched the name is a contract |
+| one template, another name | straight into that one |
+| several, no `task.yml` | GitHub's `/issues/new/choose` |
+| none, or unreadable | a blank `/issues/new` |
+
+The list is looked up once per repo per run, not on every poll. To force one
+named form regardless, add `"template": "something.yml"` to the block's props.
+
 ## Keys
 
 Handled by the focused panel, no binding needed:
@@ -90,6 +108,7 @@ Handled by the focused panel, no binding needed:
 | `↑` / `↓` | move the selection |
 | `enter` | open the selected row in the browser |
 | `r` | refresh |
+| `n` | new task (Kraken Tasks) |
 | `c` | choose the repository (Kraken Tasks) |
 
 `pane.go` reaches the panels, so `ctrl-alt-<arrow>` or whatever you have bound
