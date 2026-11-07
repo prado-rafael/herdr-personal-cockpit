@@ -1,9 +1,5 @@
 {
   "id": "root",
-  "cloned_from": {
-    "name": "main",
-    "version": "0.1.13"
-  },
   "type": "row",
   "children": [
     {
@@ -48,12 +44,13 @@
               "min": 90
             },
             {
-              "id": "issues",
+              "id": "pulls",
               "type": "block",
               "content": {
-                "mod": "issues",
+                "mod": "personal-cockpit",
                 "props": {
-                  "node": "issues"
+                  "kind": "pulls",
+                  "node": "pulls"
                 }
               },
               "size": {
@@ -62,10 +59,14 @@
               "min": 42
             },
             {
-              "id": "pulls",
+              "id": "kraken-issues",
               "type": "block",
               "content": {
-                "mod": "pulls"
+                "mod": "personal-cockpit",
+                "props": {
+                  "kind": "issues",
+                  "node": "kraken-issues"
+                }
               },
               "size": {
                 "weight": 1
