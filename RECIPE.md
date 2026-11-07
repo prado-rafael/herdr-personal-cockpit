@@ -122,6 +122,7 @@ Narrower than 160 px either panel drops to a **rail**: its icon, tinted
 
 ```
 layouts/cockpit.json          main + two blocks in sidebar-lists
+layouts/cockpit.svg           its thumbnail in Settings, named by "preview"
 mods/personal-cockpit/
   main.js      the one exported View; picks a screen by props.kind
   list.js      the list panel: state, refresh, setup states, keyboard, render
@@ -213,8 +214,16 @@ about 20 rate-limit points a call, against 5,000 an hour. At 180 s that is
 - **`props.repo` pins a block and hides the gear.** A layout that names a repo
   meant that block to be that repo; use it to show personal and work side by
   side, and expect no picker on those.
-- **No `preview` on the layout root yet**, so Settings shows a plain frame for
-  it. Add `"preview": "layouts/cockpit.svg"` once there is a drawing.
+- **Two different pictures, easy to confuse.** `preview.png` at the repo root
+  is the herdr.dev gallery card and the README image. `layouts/cockpit.svg` is
+  the thumbnail inside the app, in Settings → Look, and it only appears
+  because the layout root names it in `"preview"`. Herdr draws its own
+  thumbnails for its own layouts, so a layout from elsewhere with no `preview`
+  is the only one in that row showing an empty frame.
+- **The installer has to copy the `.svg` too.** It is referenced from the
+  layout, not from the mod, so a run that copies only `cockpit.json` leaves
+  `"preview"` pointing at a file that is not in the Herdr home. Both scripts
+  loop over `cockpit.json` and `cockpit.svg`.
 - **The cache is per mod copy.** `localStorage` lands in
   `data/personal-cockpit/store-<hash>.json`, hashed from the props — so two
   blocks, or the same block with a different repo, do not share one. It is
@@ -251,3 +260,5 @@ about 20 rate-limit points a call, against 5,000 an hour. At 180 s that is
   watched repo, and Pull requests has no pencil at all.
 - Pointed at a repo with no issue templates, New task still works and lands on
   a blank new-issue form.
+- Settings → Look shows a drawn thumbnail on the cockpit card, not the empty
+  frame a layout without a `preview` gets.
