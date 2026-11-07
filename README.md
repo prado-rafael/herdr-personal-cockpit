@@ -45,9 +45,35 @@ your own, and `ctrl-alt-shift-escape` always returns to the default `main`.
 > way, so the panels come up and look right. But `svg("mods/personal-cockpit/…")`
 > resolves to a path outside `~/.config/herdr-app` and the icons silently do
 > not draw: no refresh, no gear, no dock arrow, no minimise, and nothing in
-> `herdr-app status` to say why. Verified on 0.1.13 by A/B — same commit, same
-> layout, junction gives bare headers and a copy gives all four buttons.
-> Run `tools/install.ps1` again after every edit instead; it takes a moment.
+> `herdr-app status` to say why. Verified on Windows 0.1.13 by A/B — same
+> commit, same layout, junction gives bare headers and a copy gives all four
+> buttons. That the app resolves the real path at all means a Unix symlink
+> will very likely do the same; untested, and the install scripts copy on
+> every platform so it never comes up. Re-run the installer after each edit.
+
+## Platforms
+
+Windows, macOS and Linux. `gh` is the only thing it shells out to and it
+behaves the same on all three; the panel talks to it through `exec`, never
+through a shell, so nothing here depends on PowerShell or on `sh`.
+
+Two places know which platform they are on, both through `window().platform`:
+
+- **Finding `gh`.** Herdr's environment is the one it started with, so a `gh`
+  installed afterwards is not on its PATH until the app restarts. The lookup
+  tries `gh` first, then `C:\Program Files\GitHub CLI\gh.exe` and its x86
+  sibling, `/opt/homebrew/bin/gh`, `/usr/local/bin/gh`, `/usr/bin/gh`.
+- **Offering to install it.** Windows gets a button running
+  `winget install --id GitHub.cli -e`, macOS one running `brew install gh`.
+  Linux gets a line of text instead, because guessing between apt, dnf,
+  pacman, zypper and the rest is worse than pointing at cli.github.com.
+
+Everything else — opening a row, the New task form — goes through
+`cx.open_url`, which hands the URL to whatever the system opens URLs with.
+
+An earlier version of the tasks panel read a GitHub token out of Git
+Credential Manager through a bundled PowerShell script, which worked on
+Windows only. It is gone; `gh` holds the login now.
 
 To put the panels in a layout you already have, add two blocks to a column:
 
@@ -127,14 +153,21 @@ No `keys.json` ships here, so nothing of yours is touched.
 The loop is edit, reinstall, look — there is no hot reload here, because the
 mod is installed as a copy (see the warning above):
 
-```sh
-.\tools\install.ps1 -NoSwitch   # copy over the installed one; runs check too
-herdr-app status                # errors from layouts, keys and mods
-herdr-app shot shot.png         # the last rendered frame, as a PNG
+```powershell
+.\tools\install.ps1 -NoSwitch     # copy over the installed one; runs check too
 ```
 
-`install.ps1` mirrors the folder, so a file deleted here is deleted there, and
-it runs `check` on what it installed before switching.
+```sh
+./tools/install.sh --no-switch
+herdr-app status                  # errors from layouts, keys and mods
+herdr-app shot shot.png           # the last rendered frame, as a PNG
+```
+
+Both installers replace the installed copy wholesale, so a file deleted here
+is deleted there, and both run `check` on what they installed before
+switching. `--no-layout` / `-NoLayout` leaves `layouts/cockpit.json` alone.
+`HERDR_APP_HOME` points `install.sh` at another home, which is also how it
+gets tested.
 
 ```sh
 herdr-app check mods/personal-cockpit   # must exit 0 before you call it done

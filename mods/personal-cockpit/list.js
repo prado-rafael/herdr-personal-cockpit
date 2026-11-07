@@ -7,7 +7,7 @@
 
 import { div } from "gpui-kit";
 import { v_flex } from "gpui-base";
-import { layout, nextCommand, openOverlay, props, run, theme } from "herdr";
+import { layout, nextCommand, openOverlay, props, run, theme, window as hostWindow } from "herdr";
 import {
   COLLAPSED_MAX,
   RAIL_MAX,
@@ -197,14 +197,24 @@ export class List {
         .child(button(t, `${id}-pick`, "Choose repository", () => this.configure()));
     }
     if (this.state === "no-gh") {
-      return panel
-        .child(note("GitHub CLI not found. Install it, sign in, then restart Herdr so it picks up the new PATH."))
-        .child(
-          button(t, `${id}-install`, "Install gh", () =>
-            this.terminal(["powershell", "-NoProfile", "-Command", "winget install --id GitHub.cli -e"]),
-          ),
-        )
-        .child(note("macOS: brew install gh · Linux: cli.github.com"));
+      panel.child(note("GitHub CLI not found. Install it, sign in, then restart Herdr so it picks up the new PATH."));
+      // Offer a command only where there is one command to offer. Linux has a
+      // dozen package managers and guessing wrong is worse than saying where
+      // to look.
+      switch (hostWindow()?.platform) {
+        case "windows":
+          return panel.child(
+            button(t, `${id}-install`, "Install gh", () =>
+              this.terminal(["powershell", "-NoProfile", "-Command", "winget install --id GitHub.cli -e"]),
+            ),
+          );
+        case "macos":
+          return panel.child(
+            button(t, `${id}-install`, "Install gh", () => this.terminal(["brew", "install", "gh"])),
+          );
+        default:
+          return panel.child(note("Your package manager, or cli.github.com — then restart Herdr."));
+      }
     }
     if (this.state === "no-auth") {
       return panel
