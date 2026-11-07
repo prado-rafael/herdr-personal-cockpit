@@ -206,7 +206,12 @@ const action = (t, id, tip, icon, onClick) =>
     .text_color(t.dim)
     .hover((s) => s.text_color(t.foreground))
     .tooltip(tip)
-    .on_click(onClick)
+    .on_click((e, cx) => {
+      // The bar these sit on is itself the minimise button, so without this a
+      // press on refresh would also fold the panel it just refreshed.
+      cx.stop_propagation();
+      onClick(e, cx);
+    })
     .child(svg(icon).size(13));
 
 export const spinner = (t, size = 13) =>
@@ -221,7 +226,7 @@ export function rail(t, icon, attention) {
 }
 
 /** The header bar: title, then one of trouble / attention / a plain count, then
- *  refresh, dock and minimise. */
+ *  refresh, dock and minimise. The bar itself minimises too -- see below. */
 export function header(t, o) {
   // The title shrinks and truncates rather than holding its width: "Team's
   // pull requests" beside a `2 needs you` pill is wider than a 268px sidebar,
@@ -277,7 +282,19 @@ export function header(t, o) {
     );
   }
 
+  // The whole bar folds the panel, not only the 13px glyph at the end of it:
+  // the title, the count and the empty space between them are all the same
+  // press. A stack of panels is something you open and shut all day, and a
+  // strip this wide is a target you don't have to aim at. The glyph stays --
+  // it is the part that says which way the next press goes.
+  //
+  // Only when there is a block to resize. A pane or an overlay has no height
+  // of its own to give back, and a bar that looks pressable and isn't is worse
+  // than a plain one.
+  const foldable = Boolean(o.host && o.onMinimise);
+
   return h_flex()
+    .id(`${o.id}-header`)
     .px(16)
     .h(41)
     .pt(14)
@@ -286,6 +303,12 @@ export function header(t, o) {
     .gap(6)
     .items_center()
     .justify_between()
+    .when(foldable, (el) =>
+      el
+        .cursor_pointer()
+        .hover((s) => s.bg(t.hover))
+        .on_click(() => o.onMinimise()),
+    )
     .child(h_flex().flex_1().min_w(0).gap(6).items_center().children(left))
     .child(h_flex().flex_none().gap(8).items_center().children(actions));
 }

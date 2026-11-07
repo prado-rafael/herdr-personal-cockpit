@@ -13,8 +13,9 @@ sidebar, next to the agents doing the work.
 | **Routines** | Kraken tasks you keep instead of rewriting. A `▶` opens one in the queue; while its task is open the button is gone. Grouped into Needs you / In the queue / Ready / Paused. |
 
 All four keep their last good list when a refresh fails, minimise to their own
-header bar, move to a column on the right, and drop to an icon-and-count rail
-when the sidebar is dragged narrow.
+header bar — the minus, or a press anywhere else on the bar — move to a column
+on the right, and drop to an icon-and-count rail when the sidebar is dragged
+narrow.
 
 `RECIPE.md` is the brief this was built from — read that to rebuild or change
 it, and keep it current when you do. The files here are one build of it.
