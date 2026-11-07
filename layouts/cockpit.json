@@ -59,6 +59,21 @@
               "min": 42
             },
             {
+              "id": "routines",
+              "type": "block",
+              "content": {
+                "mod": "personal-cockpit",
+                "props": {
+                  "kind": "routines",
+                  "node": "routines"
+                }
+              },
+              "size": {
+                "weight": 1
+              },
+              "min": 42
+            },
+            {
               "id": "kraken-issues",
               "type": "block",
               "content": {

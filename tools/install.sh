@@ -30,6 +30,16 @@ done
 [ -d "$herdr" ] || { echo "No Herdr home at $herdr -- start the app once first." >&2; exit 1; }
 
 dst=$herdr/mods/$name
+
+# routines.yml belongs to the person, not to the install: it is their schedule,
+# edited in place so a new routine never means reinstalling. The copy below
+# wipes the folder, so it is stashed across that and put back.
+keep=""
+if [ -f "$dst/routines.yml" ]; then
+  keep=$(mktemp)
+  cp -- "$dst/routines.yml" "$keep"
+fi
+
 # A previous symlink install has to go before a copy can land. Removing the
 # link itself, never what it points at.
 [ -L "$dst" ] && rm -- "$dst"
@@ -39,10 +49,20 @@ mkdir -p -- "$dst"
 for f in "$root/mods/$name"/*; do
   case $(basename -- "$f") in
     gpui-kit.d.ts|jsconfig.json) continue ;;   # the app writes these itself
+    routines.yml) continue ;;                  # the person's, restored below
   esac
   cp -- "$f" "$dst/"
 done
 echo "mod      -> $dst"
+
+if [ -n "$keep" ]; then
+  cp -- "$keep" "$dst/routines.yml"
+  rm -f -- "$keep"
+  echo "routines -> kept $dst/routines.yml"
+elif [ -f "$dst/routines.example.yml" ]; then
+  cp -- "$dst/routines.example.yml" "$dst/routines.yml"
+  echo "routines -> $dst/routines.yml (from the example)"
+fi
 
 if [ "$layout" -eq 1 ]; then
   # The .json and the .svg its "preview" field points at; the Settings picker

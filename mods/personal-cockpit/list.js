@@ -28,8 +28,13 @@ import { ago, ghCommand } from "./github.js";
 import { repoOf } from "./config.js";
 import * as pulls from "./pulls.js";
 import * as issues from "./issues.js";
+import * as routines from "./routines.js";
 
-const SOURCES = { pulls, issues };
+const SOURCES = { pulls, issues, routines };
+
+// How long a row says what its button just did. Long enough to read on the way
+// past, short enough that it is gone before it could describe anything stale.
+const DONE_MS = 6000;
 
 export class List {
   constructor(view, cx) {
@@ -47,6 +52,14 @@ export class List {
     this.error = null;
     // Set when a refresh failed but the list it would have replaced is still good.
     this.stale = null;
+    // Set when a row's own button failed. Its own field, because "couldn't
+    // refresh" is the wrong thing to tell someone who pressed ▶.
+    this.acted = null;
+    // The row whose button is in flight, and the one that just succeeded. Both
+    // belong to the panel rather than the source: they are what this screen is
+    // doing, not anything the queue knows about.
+    this.acting = null;
+    this.done = null;
     this.fetchedAt = null;
     this.busy = false;
     this.width = 0;
@@ -112,6 +125,9 @@ export class List {
         }
       } finally {
         this.busy = false;
+        // Whatever a row's button was waiting for, this list is now newer than
+        // it: the spinner has nothing left to stand for.
+        this.acting = null;
         cx.notify();
       }
     });
@@ -126,6 +142,7 @@ export class List {
     this.state = this.repo ? "loading" : "no-repo";
     this.error = null;
     this.stale = null;
+    this.acted = null;
     this.fetchedAt = null;
     if (this.repo && this.source.cached) {
       const saved = this.source.cached(this.repo);
@@ -136,6 +153,56 @@ export class List {
       }
     }
     this.refresh(cx);
+  }
+
+  /** A row's own button, for a source that has one (routines' ▶). The source
+   *  does the work and keeps no state; this refreshes afterwards so the result
+   *  lands in the row that was pressed instead of up to a poll later.
+   *
+   *  `acting` is deliberately not cleared here. The work being done is only
+   *  half of it: until the refresh lands, the row still describes the world as
+   *  it was, so clearing the spinner on the way out would put the button back
+   *  for the length of one round trip. `refresh` clears it when the list it
+   *  loaded is the one on screen. */
+  act(item, cx) {
+    if (!this.source.act || this.busy) return;
+    this.busy = true;
+    this.acted = null;
+    this.acting = item.key;
+    cx.spawn(async (cx) => {
+      try {
+        await this.source.act(item, { repo: this.repo });
+        const at = Date.now();
+        this.done = { key: item.key, at };
+        // A note, not a state: the row itself says what happened from here on.
+        cx.timer.after(DONE_MS, (cx) => {
+          if (this.done?.at !== at) return;
+          this.done = null;
+          cx.notify();
+        });
+      } catch (e) {
+        this.acted = String(e?.message ?? e);
+      } finally {
+        this.busy = false;
+        this.refresh(cx);
+        cx.notify();
+      }
+    });
+    cx.notify();
+  }
+
+  /** The gear, for a source that brings its own settings action instead of the
+   *  repo picker. Errors land in the same place a row button's do, because a
+   *  gear that does nothing and says nothing is the worst of both. */
+  configureWith(cx) {
+    cx.spawn(async (cx) => {
+      try {
+        await this.source.configure();
+      } catch (e) {
+        this.acted = String(e?.message ?? e);
+        cx.notify();
+      }
+    });
   }
 
   configure() {
@@ -264,6 +331,14 @@ export class List {
     const pinned = source.needsRepo && repoOf(source.panel).pinned;
     const newTask = this.newUrl();
 
+    // A source may bring its own settings action -- routines opens the file it
+    // is configured by. Otherwise the gear is the repo picker, for a panel that
+    // watches one and was not pinned to it by the layout.
+    const onConfigure =
+      source.configure ? (c) => this.configureWith(c)
+      : source.needsRepo && !pinned ? () => this.configure()
+      : null;
+
     const trouble =
       this.state === "no-repo" ? "no repo"
       : this.state === "no-gh" ? "gh missing"
@@ -288,9 +363,9 @@ export class List {
             host,
             collapsed,
             place,
-            // A layout that pinned the repo meant that block to be that repo.
-            onConfigure: source.needsRepo && !pinned ? () => this.configure() : null,
-            configureTip: this.repo ? `Watching ${this.repo} — change it` : "Choose a repository",
+            onConfigure,
+            configureTip:
+              source.configureTip ?? (this.repo ? `Watching ${this.repo} — change it` : "Choose a repository"),
             onNew: newTask ? (c) => this.openNew(c) : null,
             newTip: `${source.newLabel} in ${this.repo}`,
             onRefresh: (c) => this.refresh(c),
@@ -332,6 +407,9 @@ export class List {
                       wide,
                       repo: this.repo,
                       selected: r.item === selected,
+                      acting: this.acting === r.item.key,
+                      done: this.done?.key === r.item.key,
+                      onAction: (item, cx) => this.act(item, cx),
                       onClick: (_e, cx) => {
                         this.at = Math.max(0, pickable.indexOf(r.item));
                         this.open(r.item, cx);
@@ -342,7 +420,19 @@ export class List {
             ),
         );
         const footnote = source.footnote ? source.footnote(this.meta) : null;
-        if (this.stale) {
+        if (this.acted) {
+          body.push(
+            div()
+              .flex_none()
+              .px(16)
+              .pb(6)
+              .text_size(10)
+              .truncate()
+              .text_color(t.ansi1)
+              .tooltip(this.acted)
+              .child("That didn't go through"),
+          );
+        } else if (this.stale) {
           body.push(
             div()
               .flex_none()
@@ -375,8 +465,8 @@ export class List {
           cx.stop_propagation();
           return;
         }
-        if (e.key === "c" && source.needsRepo && !pinned) {
-          this.configure();
+        if (e.key === "c" && onConfigure) {
+          onConfigure(cx);
           cx.stop_propagation();
           return;
         }
