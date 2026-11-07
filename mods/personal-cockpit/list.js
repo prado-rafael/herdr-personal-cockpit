@@ -29,8 +29,9 @@ import { repoOf } from "./config.js";
 import * as pulls from "./pulls.js";
 import * as issues from "./issues.js";
 import * as routines from "./routines.js";
+import * as team from "./team.js";
 
-const SOURCES = { pulls, issues, routines };
+const SOURCES = { pulls, issues, routines, team };
 
 // How long a row says what its button just did. Long enough to read on the way
 // past, short enough that it is gone before it could describe anything stale.
@@ -377,48 +378,57 @@ export class List {
     if (!railed && !collapsed) {
       if (this.state !== "ok" && this.state !== "loading") {
         body.push(this.setup(t));
-      } else if (!rows.length) {
-        // An empty queue is the good case, so it gets the way to fill it
-        // rather than only the news that it is empty.
-        const idle = v_flex()
-          .px(16)
-          .pb(10)
-          .gap(8)
-          .items_start()
-          .child(div().text_size(12).text_color(t.dim).child(this.state === "loading" ? source.loading : source.empty));
-        if (newTask && this.state !== "loading") {
-          idle.child(button(t, `cockpit-${source.panel}-new-empty`, source.newLabel, (_e, cx) => this.openNew(cx)));
-        }
-        body.push(idle);
       } else {
-        body.push(
-          v_flex()
-            .id(`cockpit-${source.panel}-list`)
-            .flex_1()
-            .min_h(0)
-            .px(6)
-            .gap(1)
-            .overflow_y_scrollbar()
-            .children(
-              rows.map((r) =>
-                r.kind === "head"
-                  ? sectionHead(t, r.label, r.count)
-                  : source.rowOf(t, r.item, {
-                      wide,
-                      repo: this.repo,
-                      selected: r.item === selected,
-                      acting: this.acting === r.item.key,
-                      done: this.done?.key === r.item.key,
-                      onAction: (item, cx) => this.act(item, cx),
-                      onClick: (_e, cx) => {
-                        this.at = Math.max(0, pickable.indexOf(r.item));
-                        this.open(r.item, cx);
-                        cx.notify();
-                      },
-                    }),
+        if (!rows.length) {
+          // An empty queue is the good case, so it gets the way to fill it
+          // rather than only the news that it is empty.
+          const idle = v_flex()
+            .px(16)
+            .pb(10)
+            .gap(8)
+            .items_start()
+            .child(
+              div().text_size(12).text_color(t.dim).child(this.state === "loading" ? source.loading : source.empty),
+            );
+          if (newTask && this.state !== "loading") {
+            idle.child(button(t, `cockpit-${source.panel}-new-empty`, source.newLabel, (_e, cx) => this.openNew(cx)));
+          }
+          body.push(idle);
+        } else {
+          body.push(
+            v_flex()
+              .id(`cockpit-${source.panel}-list`)
+              .flex_1()
+              .min_h(0)
+              .px(6)
+              .gap(1)
+              .overflow_y_scrollbar()
+              .children(
+                rows.map((r) =>
+                  r.kind === "head"
+                    ? sectionHead(t, r.label, r.count)
+                    : source.rowOf(t, r.item, {
+                        wide,
+                        repo: this.repo,
+                        selected: r.item === selected,
+                        acting: this.acting === r.item.key,
+                        done: this.done?.key === r.item.key,
+                        onAction: (item, cx) => this.act(item, cx),
+                        onClick: (_e, cx) => {
+                          this.at = Math.max(0, pickable.indexOf(r.item));
+                          this.open(r.item, cx);
+                          cx.notify();
+                        },
+                      }),
+                ),
               ),
-            ),
-        );
+          );
+        }
+
+        // Under the empty list as much as under a full one. A panel configured
+        // by a file is usually empty *because* of that file, and the footnote
+        // is where that file's problems are said -- "nothing to watch" with
+        // nothing under it is the one case that most needs a reason.
         const footnote = source.footnote ? source.footnote(this.meta) : null;
         if (this.acted) {
           body.push(
@@ -445,7 +455,9 @@ export class List {
               .child(`Couldn't refresh · showing ${ago(this.fetchedAt)}`),
           );
         } else if (footnote) {
-          body.push(div().flex_none().px(16).pb(6).text_size(10).text_color(t.dim).child(footnote));
+          body.push(
+            div().flex_none().px(16).pb(6).text_size(10).truncate().tooltip(footnote).text_color(t.dim).child(footnote),
+          );
         }
       }
     }

@@ -8,10 +8,13 @@
 
 import { div } from "gpui-kit";
 import { graphql, ago, agoShort } from "./github.js";
-import { row, spinner } from "./kit.js";
+import { RED, RUNNING, checkGlyph, row } from "./kit.js";
 
 export const panel = "pulls";
-export const title = "Pull requests";
+// "My", because the panel below it is the same list for other people. The
+// `panel` key stays "pulls": it names the layout block, the height remembered
+// in shared state and the cache, and none of those are the title.
+export const title = "My pull requests";
 export const icon = "mods/personal-cockpit/pulls.svg";
 export const needsRepo = false;
 // Slow on purpose: a sidebar panel keeps its timers while hidden.
@@ -26,11 +29,12 @@ const GROUPS = [
   ["draft", "Drafts"],
 ];
 
-const RED = (state) => state === "FAILURE" || state === "ERROR";
-const RUNNING = (state) => state === "PENDING" || state === "EXPECTED";
-
-// Counts stay small on purpose: 30 PRs of ~50 child nodes is about 20 GraphQL
-// rate-limit points a call, against a budget of 5,000 an hour.
+// Counts stay small on purpose. 30 PRs of ~50 child nodes reads like about 20
+// GraphQL rate-limit points a call against a budget of 5,000 an hour, which is
+// what this used to say; asked with `rateLimit { cost }` it answered 1, at one
+// open PR. GitHub charges per connection it has to go and fetch rather than per
+// node returned, so the honest version is "cheap, and measurable" -- measure
+// before adding a connection here.
 const QUERY = (mergeState) => `
 query {
   viewer {
@@ -153,17 +157,6 @@ export const attention = (items) => items.filter((p) => p.group === "attention")
 
 export const stampNote = (meta) => meta?.login ?? null;
 
-function glyph(t, checks) {
-  if (RUNNING(checks.state)) return spinner(t, 11);
-  const red = RED(checks.state);
-  return div()
-    .w(11)
-    .flex_none()
-    .text_center()
-    .text_color(red ? t.ansi1 : checks.state === "SUCCESS" ? t.ansi2 : t.dim)
-    .child(red ? "✕" : checks.state === "SUCCESS" ? "✓" : "·");
-}
-
 // What's true about this PR, most pressing first: the line truncates from the
 // right, so the thing you need to act on survives a narrow sidebar.
 function signals(t, pr) {
@@ -202,7 +195,7 @@ export function rowOf(t, pr, o) {
   const short = pr.repo.includes("/") ? pr.repo.split("/")[1] : pr.repo;
   return row(t, {
     id: `pr-${pr.repo}-${pr.number}`,
-    glyph: glyph(t, pr.checks),
+    glyph: checkGlyph(t, pr.checks.state),
     title: pr.title,
     tag: pr.draft ? "draft" : null,
     age: agoShort(pr.updatedAt),

@@ -1,0 +1,54 @@
+# Team's pull requests: the open PRs of the people you watch.
+#
+# Copy this to `team.yml` beside it and edit that -- or press the gear in the
+# panel's header, which writes it from this file the first time and opens it.
+# The installers never touch `team.yml`, so a change takes effect on the next
+# poll: no reinstall, no restart. This example file *is* overwritten on install,
+# so keep your own list out of it.
+#
+# Both settings below are commented out, which is why a fresh panel says
+# "nothing to watch" rather than quietly showing you nothing. Uncomment one.
+#
+# Nothing here writes to GitHub. The panel searches every two minutes, groups
+# what it finds by whoever opened it, and opens a row in your browser when you
+# click it.
+
+
+# ---- the search -----------------------------------------------------------
+#
+# GitHub's own issue-search syntax: the same string you would type into the
+# search box. Scope it -- without an `org:` or a `repo:` a teammate's weekend
+# projects turn up beside the work.
+#
+#   org:your-org           every repo of one org
+#   repo:your-org/api      one repo
+#   repo:a/api repo:a/web  two of them; repeated qualifiers of a kind are OR-ed
+#   draft:false            skip drafts
+#   -author:your-login     everybody but you -- your own are in the panel above
+#   review-requested:@me   only what is waiting on you. `@me` is expanded here
+#                          before the call, because the search API does not
+#                          know it (gh and the website do)
+#
+# `is:pr`, `is:open` and `sort:updated-desc` are added when you leave them out,
+# and a query that already says `is:closed` or `merged:` keeps the state it
+# asked for. GitHub caps a query at 256 characters; past that the panel says so
+# rather than letting the call come back as a bare "Validation Failed".
+
+# query: org:your-org draft:false -author:your-login
+
+
+# ---- the people -----------------------------------------------------------
+#
+# GitHub logins, one per line. They go onto the search as `author:` terms, so
+# the panel holds these people and nobody else -- and the order here is the
+# order of the groups in the panel, so put whoever you look at first at the top.
+#
+# Optional. With no `people:` the query stands on its own and the groups are
+# whoever it found, most recently active first: that is how to watch a whole
+# org without naming anybody. Listing them is for watching five.
+#
+# Somebody the search found who is not listed here sorts after everyone who is.
+
+# people:
+#   - octocat
+#   - hubot

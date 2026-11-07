@@ -32,18 +32,24 @@ if (Test-Path $dst) {
 
 # /MIR so a file deleted here is deleted there; the two the app writes into the
 # mod folder are left alone, since they belong to the installed version.
-# routines.yml joins them for a different reason: it is the person's schedule,
-# edited in place so a new routine never means reinstalling. An /XF file is
-# excluded from the operation, so /MIR does not delete it either.
-robocopy $src $dst /MIR /XF gpui-kit.d.ts jsconfig.json routines.yml /NFL /NDL /NJH /NJS /NP | Out-Null
+# routines.yml and team.yml join them for a different reason: they are the
+# person's own, edited in place so that a new routine or a new teammate never
+# means reinstalling. An /XF file is excluded from the operation, so /MIR does
+# not delete it either.
+robocopy $src $dst /MIR /XF gpui-kit.d.ts jsconfig.json routines.yml team.yml /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE" }
 Write-Host "mod      -> $dst"
 
-$routines = Join-Path $dst 'routines.yml'
-$example = Join-Path $dst 'routines.example.yml'
-if ((-not (Test-Path $routines)) -and (Test-Path $example)) {
-  Copy-Item $example $routines
-  Write-Host "routines -> $routines (from the example)"
+# Seeded from the example only when it is not there yet, so an install never
+# overwrites what somebody wrote. The gear in those panels does the same thing
+# for a file deleted later.
+foreach ($conf in @('routines', 'team')) {
+  $file = Join-Path $dst "$conf.yml"
+  $example = Join-Path $dst "$conf.example.yml"
+  if ((-not (Test-Path $file)) -and (Test-Path $example)) {
+    Copy-Item $example $file
+    Write-Host "config   -> $file (from the example)"
+  }
 }
 
 if (-not $NoLayout) {

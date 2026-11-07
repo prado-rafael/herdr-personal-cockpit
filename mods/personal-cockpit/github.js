@@ -69,10 +69,16 @@ function answer(r, args) {
 }
 
 /** Runs a GraphQL query. `preview` adds an Accept header for a field still
- *  behind a preview media type; pass null for none. */
-export async function graphql(query, preview = null) {
+ *  behind a preview media type; pass null for none.
+ *
+ *  `vars` becomes GraphQL variables -- every `-f` gh is given besides `query`
+ *  is one. That is how a search string somebody wrote in a config file reaches
+ *  the API without being spliced into the document, where one quote of theirs
+ *  would change what the document means. */
+export async function graphql(query, preview = null, vars = null) {
   const gh = await resolve();
   const args = ["api", "graphql", "-f", `query=${query}`];
+  for (const [name, value] of Object.entries(vars ?? {})) args.push("-f", `${name}=${value}`);
   if (preview) args.push("-H", preview);
   const body = answer(await exec(gh, args), args);
   if (body.errors?.length) {

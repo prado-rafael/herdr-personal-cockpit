@@ -7,11 +7,12 @@ sidebar, next to the agents doing the work.
 
 | Panel | What it shows |
 |---|---|
-| **Pull requests** | Your open PRs across every repo you can read: build state, approvals, conflicts, unresolved threads, diff size. Grouped into Needs you / Ready to merge / Waiting / Drafts. |
+| **My pull requests** | Your open PRs across every repo you can read: build state, approvals, conflicts, unresolved threads, diff size. Grouped into Needs you / Ready to merge / Waiting / Drafts. |
+| **Team's pull requests** | The same, for the people you watch — from a search you keep in `team.yml`. **Grouped by whoever opened them**, and a row says when your review is the thing it is waiting for. |
 | **Kraken Tasks** | The open issues of one coordination repo you choose — a [kraken](https://github.com/rafael-adcp/kraken) task queue. Grouped into Needs you / Queue, with the issues' own GitHub labels. |
 | **Routines** | Kraken tasks you keep instead of rewriting. A `▶` opens one in the queue; while its task is open the button is gone. Grouped into Needs you / In the queue / Ready / Paused. |
 
-All three keep their last good list when a refresh fails, minimise to their own
+All four keep their last good list when a refresh fails, minimise to their own
 header bar, move to a column on the right, and drop to an icon-and-count rail
 when the sidebar is dragged narrow.
 
@@ -68,11 +69,12 @@ Three places know which platform they are on, all through `window().platform`:
   `winget install --id GitHub.cli -e`, macOS one running `brew install gh`.
   Linux gets a line of text instead, because guessing between apt, dnf,
   pacman, zypper and the rest is worse than pointing at cli.github.com.
-- **Opening `routines.yml`** from the Routines gear: `cmd /c start`, `open`,
-  `xdg-open`. `cx.open_url` cannot do this one — it takes an absolute
-  `http`/`https` URL and refuses every other scheme by design, so that a mod
-  cannot hand an arbitrary URI to whichever handler the desktop registered for
-  it. That rules out `file://`, and a file is what this has to open.
+- **Opening a config file** from the Routines or Team gear (`conf.js`):
+  `cmd /c start`, `open`, `xdg-open`. `cx.open_url` cannot do this one — it
+  takes an absolute `http`/`https` URL and refuses every other scheme by
+  design, so that a mod cannot hand an arbitrary URI to whichever handler the
+  desktop registered for it. That rules out `file://`, and a file is what this
+  has to open.
 
 Everything else — opening a row, the New task form — goes through
 `cx.open_url`, which hands the URL to whatever the system opens URLs with.
@@ -87,6 +89,8 @@ column:
 ```json
 { "id": "pulls", "type": "block", "min": 42, "size": { "weight": 1 },
   "content": { "mod": "personal-cockpit", "props": { "kind": "pulls", "node": "pulls" } } },
+{ "id": "team", "type": "block", "min": 42, "size": { "weight": 1 },
+  "content": { "mod": "personal-cockpit", "props": { "kind": "team", "node": "team" } } },
 { "id": "routines", "type": "block", "min": 42, "size": { "weight": 1 },
   "content": { "mod": "personal-cockpit", "props": { "kind": "routines", "node": "routines" } } },
 { "id": "kraken-issues", "type": "block", "min": 42, "size": { "weight": 1 },
@@ -134,6 +138,57 @@ Which form it lands on is resolved against the templates the repo really has:
 The list is looked up once per repo per run, not on every poll. To force one
 named form regardless, add `"template": "something.yml"` to the block's props.
 
+## Team's pull requests
+
+Nothing can ask GitHub for somebody else's pull requests the way the panel
+above asks for yours — `viewer.pullRequests` is only ever you. So this one
+searches, with a query you keep in `team.yml` **in the installed mod folder**:
+
+```
+~/.config/herdr-app/mods/personal-cockpit/team.yml
+```
+
+The gear in the header opens it, and `c` with the keyboard does the same. It
+writes the file from `team.example.yml` the first time, so the gear always opens
+something. Both installers leave it alone, so a new teammate takes effect on the
+next poll — no reinstall, no restart, and like `routines.yml` it is per machine.
+
+Two settings, both optional on their own but not together:
+
+```yaml
+query: org:your-org draft:false -author:your-login
+
+people:
+  - alice
+  - bob
+```
+
+`query` is GitHub's own issue-search syntax — the string you would type into
+the search box. **Scope it**: without an `org:` or a `repo:` you get a
+teammate's weekend projects beside the work. `is:pr`, `is:open` and
+`sort:updated-desc` are added when you leave them out, and a query that already
+says `is:closed` or `merged:` keeps the state it asked for. `@me` is expanded
+before the call, so `review-requested:@me` works here even though the search API
+does not know that shorthand — that one query turns the panel from who you watch
+into what is waiting on you.
+
+`people` are GitHub logins. They go on as `author:` terms, so the panel holds
+those people and nobody else, and **the order you write them in is the order of
+the groups**. Leave it out and the query stands alone, with a group for whoever
+it found, most recently active first: that is how to watch a whole org without
+naming anybody.
+
+The groups do not reorder themselves as things happen — a list you glance at is
+one whose rows are where you left them. What wants you is in the header's red
+count, in a `your review` on the row, and first inside that person's group.
+`you approved` says you are done with one. Set the panel wide, or dock it to the
+right column, and the second line gets room for all of it.
+
+Pointed at nothing, the panel says `nothing to watch` rather than showing you an
+empty list and letting you wonder. A query too long for GitHub's 256-character
+cap says that too, with the length, instead of returning a bare
+`Validation Failed`.
+
 ## Routines
 
 A task you open again and again — review the flaky tests, prune merged
@@ -149,11 +204,12 @@ They live in `routines.yml` **in the installed mod folder**, not in this repo:
 
 The gear in the panel's header opens that file, and `c` with the keyboard does
 the same — it is the whole configuration surface of the panel, so there is
-nowhere else to look and no path to remember.
+nowhere else to look and no path to remember. If it is not there, the gear
+writes it from `routines.example.yml` first.
 
-Both installers leave that file alone — it is in their exclude list beside the
-two the app writes — and copy `routines.example.yml` across only when it is not
-there yet. So a new routine takes effect on the next poll, with no reinstall and
+Both installers leave that file alone — it is in their exclude list beside
+`team.yml` and the two the app writes — and copy `routines.example.yml` across
+only when it is not there yet. So a new routine takes effect on the next poll, with no reinstall and
 no restart, which is the opposite of how every other file here works. It is also
 why the file is per machine: your two laptops can keep different routines, and
 neither can open the other's tasks.
@@ -195,7 +251,7 @@ Handled by the focused panel, no binding needed:
 | `enter` | open the selected row in the browser |
 | `r` | refresh |
 | `n` | new task (Kraken Tasks) |
-| `c` | the gear: choose the repository (Kraken Tasks), open `routines.yml` (Routines) |
+| `c` | the gear: choose the repository (Kraken Tasks), open `routines.yml` (Routines) or `team.yml` (Team's pull requests) |
 
 `pane.go` reaches the panels, so `ctrl-alt-<arrow>` or whatever you have bound
 to it moves the keyboard onto one.
