@@ -37,8 +37,15 @@ if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE" }
 Write-Host "mod      -> $dst"
 
 if (-not $NoLayout) {
-  Copy-Item (Join-Path $root 'layouts\cockpit.json') (Join-Path $herdr 'layouts\cockpit.json') -Force
-  Write-Host "layout   -> $herdr\layouts\cockpit.json"
+  # The .json and the .svg its "preview" field points at; the Settings picker
+  # draws a blank frame without the second one.
+  foreach ($ext in @('json', 'svg')) {
+    $from = Join-Path $root "layouts\cockpit.$ext"
+    if (Test-Path $from) {
+      Copy-Item $from (Join-Path $herdr "layouts\cockpit.$ext") -Force
+      Write-Host "layout   -> $herdr\layouts\cockpit.$ext"
+    }
+  }
 }
 
 $app = Get-Command herdr-app -ErrorAction SilentlyContinue

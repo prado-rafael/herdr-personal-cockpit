@@ -45,8 +45,14 @@ done
 echo "mod      -> $dst"
 
 if [ "$layout" -eq 1 ]; then
-  cp -- "$root/layouts/cockpit.json" "$herdr/layouts/cockpit.json"
-  echo "layout   -> $herdr/layouts/cockpit.json"
+  # The .json and the .svg its "preview" field points at; the Settings picker
+  # draws a blank frame without the second one.
+  for ext in json svg; do
+    if [ -f "$root/layouts/cockpit.$ext" ]; then
+      cp -- "$root/layouts/cockpit.$ext" "$herdr/layouts/cockpit.$ext"
+      echo "layout   -> $herdr/layouts/cockpit.$ext"
+    fi
+  done
 fi
 
 command -v herdr-app >/dev/null 2>&1 || { echo "herdr-app not found; switch the layout yourself."; exit 0; }
