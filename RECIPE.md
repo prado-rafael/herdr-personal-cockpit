@@ -150,6 +150,16 @@ about 20 rate-limit points a call, against 5,000 an hour. At 180 s that is
 
 ## Watch out
 
+- **Install the mod folder as a copy, never a junction or a symlink.** The
+  JavaScript loads fine through a link, so the panels come up and look right —
+  but `svg("mods/personal-cockpit/…")` then resolves outside
+  `~/.config/herdr-app` and every icon silently draws nothing. The headers lose
+  refresh, gear, dock and minimise, `herdr-app status` stays clean, and there
+  is no error anywhere to follow. Established by A/B on 0.1.13: same commit,
+  same layout, junction → bare headers, copy → all four buttons. The shipped
+  `mods/workspace-chrome/spinner.svg` keeps working throughout, which is the
+  tell — it is the one asset that does not come from the linked folder.
+  `tools/install.ps1` copies, on purpose.
 - **`gh` is often not on Herdr's PATH on Windows.** Herdr's environment is the
   one it started with, and the gh installer does not touch a running process.
   `github.js` tries `gh` and then five known install paths, including
@@ -200,7 +210,11 @@ about 20 rate-limit points a call, against 5,000 an hour. At 180 s that is
 ## Done when
 
 - Both panels draw in the sidebar with the `cockpit` layout, each with its own
-  header, count and buttons.
+  header and count.
+- **Every header button is visible**: Pull requests shows refresh, dock and
+  minimise; Kraken Tasks shows refresh, gear, dock and minimise. An icon that
+  does not draw means the mod was linked instead of copied — check this before
+  anything else, because nothing else reports it.
 - `herdr-app check mods/personal-cockpit` exits 0.
 - With `gh` renamed away, the panel says `gh missing` and offers Install gh.
 - With `gh` present but signed out, it says `sign in` and offers Sign in.

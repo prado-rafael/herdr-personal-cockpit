@@ -26,29 +26,28 @@ it, and keep it current when you do. The files here are one build of it.
 
 ## Install
 
-From a clone of this repo. A junction rather than a copy, so editing here
-hot-reloads in the running app; it needs no administrator, unlike a symlink on
-a machine without Developer Mode.
+From a clone of this repo. **Copy the mod folder — do not link it.**
 
 ```powershell
-$herdr = "$env:USERPROFILE\.config\herdr-app"
-New-Item -ItemType Junction -Path "$herdr\mods\personal-cockpit" -Target "$PWD\mods\personal-cockpit"
-Copy-Item layouts\cockpit.json "$herdr\layouts\"
-herdr-app do layout.switch --name cockpit
+.\tools\install.ps1          # Windows
 ```
-
-On macOS or Linux:
 
 ```sh
-herdr=~/.config/herdr-app
-ln -s "$PWD/mods/personal-cockpit" "$herdr/mods/personal-cockpit"
-cp layouts/cockpit.json "$herdr/layouts/"
-herdr-app do layout.switch --name cockpit
+./tools/install.sh           # macOS, Linux
 ```
 
-The layout is copied, not linked, because Herdr owns that folder — re-copy it
-when it changes here. `ctrl-shift-l` cycles back to your own layout, and
-`ctrl-alt-shift-escape` always returns to the default `main`.
+Either one copies `mods/personal-cockpit` and `layouts/cockpit.json` into
+`~/.config/herdr-app` and switches to the layout. `ctrl-shift-l` cycles back to
+your own, and `ctrl-alt-shift-escape` always returns to the default `main`.
+
+> **Don't install it as a junction or a symlink.** It is tempting — the mod
+> hot-reloads as you edit, with no copy step. The JavaScript does load that
+> way, so the panels come up and look right. But `svg("mods/personal-cockpit/…")`
+> resolves to a path outside `~/.config/herdr-app` and the icons silently do
+> not draw: no refresh, no gear, no dock arrow, no minimise, and nothing in
+> `herdr-app status` to say why. Verified on 0.1.13 by A/B — same commit, same
+> layout, junction gives bare headers and a copy gives all four buttons.
+> Run `tools/install.ps1` again after every edit instead; it takes a moment.
 
 To put the panels in a layout you already have, add two blocks to a column:
 
@@ -106,15 +105,26 @@ No `keys.json` ships here, so nothing of yours is touched.
 
 ## Developing
 
+The loop is edit, reinstall, look — there is no hot reload here, because the
+mod is installed as a copy (see the warning above):
+
+```sh
+.\tools\install.ps1 -NoSwitch   # copy over the installed one; runs check too
+herdr-app status                # errors from layouts, keys and mods
+herdr-app shot shot.png         # the last rendered frame, as a PNG
+```
+
+`install.ps1` mirrors the folder, so a file deleted here is deleted there, and
+it runs `check` on what it installed before switching.
+
 ```sh
 herdr-app check mods/personal-cockpit   # must exit 0 before you call it done
-herdr-app status                        # errors from layouts, keys and mods
-herdr-app shot shot.png                 # the last rendered frame, as a PNG
 ```
 
 `check` renders the mod once with no props, which is the pull requests panel.
 To check another screen, force it at the top of `list.js` or `main.js`, run
-`check`, and put it back.
+`check`, and put it back. `herdr-app shot` is the only way to see the other
+two; `status` stays clean even when an asset fails to load.
 
 `jsconfig.json` and `gpui-kit.d.ts` are written into the mod folder by the app
 on every start and are deliberately not committed: the typings have to match

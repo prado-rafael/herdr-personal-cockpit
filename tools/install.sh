@@ -1,0 +1,57 @@
+#!/bin/sh
+# Copies the mod and the layout into the Herdr home, then switches to it.
+#
+# A copy, not a symlink. Linking looks better -- the app hot-reloads as you
+# edit -- and the JavaScript really does load through it, so the panels come up
+# and nothing reports an error. But every svg("mods/personal-cockpit/...") then
+# resolves to a path outside the Herdr home and silently draws nothing: the
+# refresh, gear, dock and minimise buttons all vanish from the headers.
+# Verified by A/B on Windows 0.1.13; assumed to hold here, so copy.
+#
+#   --no-switch   install without changing the shown layout
+#   --no-layout   install the mod only, leaving layouts/cockpit.json alone
+
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+herdr=${HERDR_APP_HOME:-$HOME/.config/herdr-app}
+name=personal-cockpit
+
+switch=1
+layout=1
+for arg in "$@"; do
+  case $arg in
+    --no-switch) switch=0 ;;
+    --no-layout) layout=0 ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
+  esac
+done
+
+[ -d "$herdr" ] || { echo "No Herdr home at $herdr -- start the app once first." >&2; exit 1; }
+
+dst=$herdr/mods/$name
+# A previous symlink install has to go before a copy can land. Removing the
+# link itself, never what it points at.
+[ -L "$dst" ] && rm -- "$dst"
+rm -rf -- "$dst"
+mkdir -p -- "$dst"
+
+for f in "$root/mods/$name"/*; do
+  case $(basename -- "$f") in
+    gpui-kit.d.ts|jsconfig.json) continue ;;   # the app writes these itself
+  esac
+  cp -- "$f" "$dst/"
+done
+echo "mod      -> $dst"
+
+if [ "$layout" -eq 1 ]; then
+  cp -- "$root/layouts/cockpit.json" "$herdr/layouts/cockpit.json"
+  echo "layout   -> $herdr/layouts/cockpit.json"
+fi
+
+command -v herdr-app >/dev/null 2>&1 || { echo "herdr-app not found; switch the layout yourself."; exit 0; }
+herdr-app check "$dst"
+if [ "$switch" -eq 1 ]; then
+  herdr-app do layout.switch --name cockpit >/dev/null
+  echo "layout   -> switched to cockpit"
+fi
