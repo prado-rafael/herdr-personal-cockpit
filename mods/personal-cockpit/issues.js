@@ -122,7 +122,25 @@ export function sections(items) {
   ].filter((s) => s.items.length);
 }
 
-export const attention = (items) => items.filter(needsYou).length;
+/** Which of the two labels parked this task on a human. The first one found, in
+ *  the order ATTENTION lists them, so a task carrying both reads as the earlier
+ *  step it is still waiting on. */
+const parkedBy = (issue) => labelNames(issue).find((n) => ATTENTION.includes(n)) ?? "needs you";
+
+/** The rows that want something from you: a task the queue cannot move past
+ *  without a person, so the move is yours and it is to decide. */
+export function urgent(items) {
+  return items.filter(needsYou).map((issue) => ({
+    key: `issues:${issue.number}`,
+    verb: "decide",
+    title: issue.title,
+    reason: parkedBy(issue),
+    url: issue.url,
+    at: Date.parse(issue.updated_at) || 0,
+  }));
+}
+
+export const attention = (items) => urgent(items).length;
 
 export const stampNote = (meta, repo) => repo ?? null;
 

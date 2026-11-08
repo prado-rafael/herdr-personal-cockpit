@@ -157,8 +157,39 @@ export function sections(items) {
   );
 }
 
+const failingLabel = (pr) => {
+  const n = pr.checks.failing.length;
+  return n > 1 ? `${n} failing` : pr.checks.failing[0] ? `${pr.checks.failing[0]} failing` : "build failed";
+};
+
+// Why a pull request cannot land as it stands, worst first. These three are
+// exactly what puts it in the "attention" group, so the list is the group's
+// definition read the other way round -- which is why the row's second line and
+// the drawer's one-line reason cannot disagree about what matters most: the row
+// draws all of them, the drawer takes the first.
+const PRESSING = [
+  [(pr) => pr.conflicts, () => "conflicts"],
+  [(pr) => pr.changesRequested, () => "changes requested"],
+  [(pr) => RED(pr.checks.state), failingLabel],
+];
+
+/** The rows that want something from you: a pull request of yours that cannot
+ *  land as it stands, so the move is yours and it is to fix it. */
+export function urgent(items) {
+  return items
+    .filter((p) => p.group === "attention")
+    .map((pr) => ({
+      key: `pulls:${pr.repo}#${pr.number}`,
+      verb: "fix",
+      title: pr.title,
+      reason: PRESSING.find(([when]) => when(pr))?.[1](pr) ?? "needs you",
+      url: pr.url,
+      at: Date.parse(pr.updatedAt) || 0,
+    }));
+}
+
 /** How many want something from you: the number worth widening the rail for. */
-export const attention = (items) => items.filter((p) => p.group === "attention").length;
+export const attention = (items) => urgent(items).length;
 
 export const stampNote = (meta) => meta?.login ?? null;
 
@@ -167,12 +198,7 @@ export const stampNote = (meta) => meta?.login ?? null;
 function signals(t, pr) {
   const out = [];
   const tag = (text, color) => out.push(div().flex_none().text_color(color).child(text));
-  if (pr.conflicts) tag("conflicts", t.ansi1);
-  if (pr.changesRequested) tag("changes requested", t.ansi1);
-  if (RED(pr.checks.state)) {
-    const n = pr.checks.failing.length;
-    tag(n > 1 ? `${n} failing` : pr.checks.failing[0] ? `${pr.checks.failing[0]} failing` : "build failed", t.ansi1);
-  }
+  for (const [when, label] of PRESSING) if (when(pr)) tag(label(pr), t.ansi1);
   if (pr.unresolved) tag(`${pr.unresolved} unresolved`, t.blocked);
   if (RUNNING(pr.checks.state)) tag(pr.checks.running.length > 1 ? `${pr.checks.running.length} running` : "building", t.working);
   if (pr.approvals) tag(`${pr.approvals} approved`, t.ansi2);

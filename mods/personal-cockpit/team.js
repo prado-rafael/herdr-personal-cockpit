@@ -242,9 +242,24 @@ export function sections(items) {
   return out.sort((a, b) => a.rank - b.rank || b.at - a.at);
 }
 
-/** How many want something from you. On somebody else's pull request that is
- *  one thing only: your review was asked for. */
-export const attention = (items) => items.filter((pr) => pr.yourReview).length;
+/** The rows that want something from you. On somebody else's pull request that
+ *  is one thing only: your review was asked for -- so the reason a row gives is
+ *  not what is wrong with it but who is waiting, which is the fact the header's
+ *  count cannot carry and the one that decides whether you go now. */
+export function urgent(items) {
+  return items
+    .filter((pr) => pr.yourReview)
+    .map((pr) => ({
+      key: `team:${pr.key}`,
+      verb: "review",
+      title: pr.title,
+      reason: pr.author,
+      url: pr.url,
+      at: Date.parse(pr.updatedAt) || 0,
+    }));
+}
+
+export const attention = (items) => urgent(items).length;
 
 export const stampNote = (meta) =>
   meta?.people?.length ? `${meta.people.length} watched` : (meta?.query ?? null);

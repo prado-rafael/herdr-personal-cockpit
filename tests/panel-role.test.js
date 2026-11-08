@@ -22,6 +22,8 @@ import * as pulls from "../mods/personal-cockpit/pulls.js";
 import * as issues from "../mods/personal-cockpit/issues.js";
 import * as routines from "../mods/personal-cockpit/routines.js";
 import * as team from "../mods/personal-cockpit/team.js";
+import { VERBS } from "../mods/personal-cockpit/urgent.js";
+import { label, minutesAgo, prNode, reviewRequest, teamPrNode } from "./support/factories.js";
 
 const PANELS = [
   ["pulls", pulls],
@@ -29,6 +31,47 @@ const PANELS = [
   ["routines", routines],
   ["team", team],
 ];
+
+// One item per player that wants something from you, which is the one thing the
+// role cannot describe generically: what counts as urgent *is* each panel's own
+// opinion. So the role test keeps a specimen of each, and asserts the same
+// things about all four.
+//
+// These are the shapes the panels pass internally, not GitHub's -- `urgent` is
+// a pure function of a loaded list, and for two of the panels that list never
+// looked like a GitHub payload.
+const NEEDY = {
+  // A conflicting pull request of yours: cannot land, and the move is yours.
+  pulls: [pulls.shape(prNode({ mergeable: "CONFLICTING" }))],
+  // Somebody else's, with your review asked for.
+  team: [team.shape(teamPrNode({ reviewRequests: { nodes: [reviewRequest("me")] } }), "me", ["alice"])],
+  // A task parked on a decision: `slim`'s shape, labels as {name, color}.
+  issues: [
+    {
+      number: 41,
+      title: "Prune merged branches",
+      url: "https://github.com/acme/tasks/issues/41",
+      comments: 0,
+      updated_at: minutesAgo(45),
+      labels: [label("needs-decision")],
+    },
+  ],
+  // A routine whose open task is parked on one: `slim`'s shape here keeps
+  // labels as bare names.
+  routines: [
+    {
+      key: "0-Nightly sweep",
+      title: "Nightly sweep",
+      state: "open",
+      def: { title: "Nightly sweep" },
+      error: null,
+      url: "https://github.com/acme/tasks/issues/42",
+      open: { number: 42, labels: ["awaiting-merge"], created_at: minutesAgo(90) },
+    },
+  ],
+};
+
+const VERB_IDS = new Set(VERBS.map(([id]) => id));
 
 // Used by list.js without asking whether it is there.
 const REQUIRED = {
@@ -42,6 +85,7 @@ const REQUIRED = {
   load: "function",
   sections: "function",
   attention: "function",
+  urgent: "function",
   rowOf: "function",
 };
 
@@ -97,6 +141,42 @@ for (const [name, mod] of PANELS) {
     const count = mod.attention([]);
     assert.equal(typeof count, "number");
     assert.equal(count, 0);
+  });
+
+  test(`${name}.urgent([]) is empty`, () => {
+    assert.deepEqual(mod.urgent([]), []);
+  });
+
+  test(`${name}.attention is ${name}.urgent's length, not a second opinion`, () => {
+    // The header pill and the drawer have to agree, and the only way to be sure
+    // they do is for one of them to be derived from the other.
+    const items = NEEDY[name];
+    assert.ok(mod.urgent(items).length > 0, `the ${name} specimen should want something`);
+    assert.equal(mod.attention(items), mod.urgent(items).length);
+    assert.equal(mod.attention([]), mod.urgent([]).length);
+  });
+
+  test(`${name}.urgent rows are drawable`, () => {
+    for (const row of mod.urgent(NEEDY[name])) {
+      assert.ok(VERB_IDS.has(row.verb), `${name} returned the unknown verb ${row.verb}`);
+      assert.equal(typeof row.title, "string");
+      assert.ok(row.title.length > 0, `${name} returned a row with no title`);
+      assert.equal(typeof row.reason, "string");
+      assert.ok(row.reason.length > 0, `${name} returned a row with no reason`);
+      assert.equal(typeof row.at, "number");
+      // Null is allowed -- a broken routine has no page -- but undefined would
+      // reach `cx.open_url` as a click that silently does nothing.
+      assert.ok(row.url === null || typeof row.url === "string");
+    }
+  });
+
+  test(`${name}.urgent keys name their own panel`, () => {
+    // The drawer draws all four lists in one element tree, so a key shared
+    // between two panels would be two rows with one id.
+    for (const row of mod.urgent(NEEDY[name])) {
+      assert.equal(typeof row.key, "string");
+      assert.ok(row.key.startsWith(`${mod.panel}:`), `${row.key} should start with ${mod.panel}:`);
+    }
   });
 
   test(`${name}.stampNote survives having no meta`, () => {
@@ -162,7 +242,7 @@ test("the role assertion rejects an empty title and a zero interval", () => {
   const base = {
     panel: "x", title: "x", icon: "x", loading: "x", empty: "x",
     needsRepo: false, refreshMs: 1,
-    load: () => {}, sections: () => [], attention: () => 0, rowOf: () => {},
+    load: () => {}, sections: () => [], attention: () => 0, urgent: () => [], rowOf: () => {},
   };
   assert.throws(() => assertPanelRole({ ...base, title: "" }, "m"), /title must not be empty/);
   assert.throws(() => assertPanelRole({ ...base, refreshMs: 0 }, "m"), /positive number of ms/);
