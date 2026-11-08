@@ -133,7 +133,7 @@ const hex2 = (n) => (n < 16 ? "0" : "") + n.toString(16);
 // GitHub picks label colours to sit on a white page, so the dark ones go
 // invisible against the sidebar. Lift them toward white until they read: the
 // badge still carries the label's own colour, only bright enough to see.
-function labelColor(t, hex) {
+export function labelColor(t, hex) {
   const n = hex ? parseInt(hex, 16) : NaN;
   if (!Number.isFinite(n)) return t.muted;
   let r = (n >> 16) & 255;

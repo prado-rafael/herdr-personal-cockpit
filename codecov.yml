@@ -1,0 +1,22 @@
+# Codecov's own status checks, kept in step with the floor `npm run coverage`
+# enforces (package.json). Two places, deliberately: CI fails on the floor with
+# no account and no network, and this is what comments on a pull request.
+coverage:
+  status:
+    project:
+      default:
+        target: 96%
+        threshold: 1%
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+
+# The mod is what ships; the suite and its doubles are not.
+ignore:
+  - "tests/**"
+  - "tools/**"
+
+comment:
+  layout: "reach, diff, files"
+  require_changes: true

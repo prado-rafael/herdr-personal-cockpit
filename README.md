@@ -1,5 +1,8 @@
 # Personal Cockpit
 
+[![CI](https://github.com/rafael-adcp/herdr-personal-cockpit/actions/workflows/ci.yml/badge.svg)](https://github.com/rafael-adcp/herdr-personal-cockpit/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/rafael-adcp/herdr-personal-cockpit/branch/main/graph/badge.svg)](https://codecov.io/gh/rafael-adcp/herdr-personal-cockpit)
+
 Panels for the [Herdr](https://herdr.dev) desktop app: what needs me, in the
 sidebar, next to the agents doing the work.
 
@@ -298,6 +301,60 @@ To check another screen, force it at the top of `list.js` or `main.js`, run
 `jsconfig.json` and `gpui-kit.d.ts` are written into the mod folder by the app
 on every start and are deliberately not committed: the typings have to match
 the installed version.
+
+## Tests
+
+```sh
+npm test               # the suite
+npm run coverage       # the suite, with a coverage report and its floor
+npm run coverage:lcov  # the same, writing coverage/lcov.info
+```
+
+No dependencies and no lockfile: it is `node:test` and `node:assert`, so a
+clone runs the suite with nothing installed. Node 22 or newer.
+
+The mod imports `herdr`, `gpui-kit` and `gpui-base` from nowhere — the app
+injects them — so `tests/support/register.mjs` resolves those three names onto
+doubles in `tests/support/host/`. The mod's own source is then imported
+unmodified, exactly as the app loads it. Nothing in `tests/` is installed, so
+the thing under test is the thing that ships.
+
+What the doubles do and do not do is the shape of the whole suite:
+
+- **State the app holds** — shared state, the files in the mod folder, the
+  layout tree — is kept for real, in memory. A test sets it up and reads back
+  what the mod did to it.
+- **Messages the mod sends outward** — `run`, `exec`, `openOverlay` — are
+  recorded. "Pressing ▶ opens an issue labelled `kraken-task`" is the
+  behaviour, so the assertion is that the message went, with those arguments.
+- **GitHub is not faked.** No test stubs `graphql` to a canned payload. The
+  judgement each panel makes about a pull request is a pure function of one
+  (`pulls.shape`, `team.shape`), exported and called directly — which is why
+  `searchFor` was already exported before any of this existed. Where a test
+  does need `gh`, it answers at the process boundary, so the real `github.js`
+  builds the real arguments and parses the real JSON: its error taxonomy can
+  only be tested there.
+
+Three things the suite covers that `herdr-app check` cannot: `check` renders
+one panel (pulls, with no props) and never builds a row, it does not resolve
+assets — a missing SVG draws nothing and reports nothing — and it says nothing
+about the keys in the table above. `tests/structure.test.js` also asserts the
+invariants of a mod folder: that every asset referenced is really there, that
+nothing imports its way out of the folder, and that both installers still
+leave `routines.yml` and `team.yml` alone.
+
+`tests/panel-role.test.js` is the one to keep green through a refactor. The
+four panels are interchangeable to `list.js`, so they are players of one role,
+and that file runs one set of tests against all four — the contract read off
+`list.js`'s own use of them rather than invented. Split a file, move one into a
+subfolder, rename a private helper: if all four still answer the same messages
+with the same kinds of answer, nothing downstream can tell the difference.
+
+Two modules keep state for the life of the process, by design, and `reset()`
+cannot clear it: `routines.js` remembers a task ▶ just opened (to paper over
+GitHub's read-after-write lag), and `issues.js` remembers a repo's issue forms.
+A test about either needs a routine title or a repo name no other test has
+used. Both places say so where it matters.
 
 ## Why one mod
 

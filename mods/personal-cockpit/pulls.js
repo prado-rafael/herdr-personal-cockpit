@@ -95,7 +95,11 @@ function checksOf(pr) {
   return { state: rollup.state ?? "NONE", failing, running, total: rollup.contexts?.totalCount ?? nodes.length };
 }
 
-function shape(pr) {
+/** One pull request, judged: which of the four groups it belongs in, and the
+ *  facts a row draws. A pure function of a GraphQL node, exported for the same
+ *  reason `searchFor` is in team.js -- this is the panel's whole opinion about
+ *  a pull request, and everything else here only draws what it returned. */
+export function shape(pr) {
   const checks = checksOf(pr);
   const approvals = (pr.latestOpinionatedReviews?.nodes ?? []).filter((r) => r.state === "APPROVED").length;
   const unresolved = (pr.reviewThreads?.nodes ?? []).filter((n) => !n.isResolved).length;

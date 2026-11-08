@@ -31,3 +31,8 @@ seen.json
 *.corrupt-*
 herdr-app.sock
 herdr-shot.png
+
+# The test run's own output. The suite needs no dependencies, so node_modules
+# only ever appears if somebody installs something by hand.
+coverage/
+node_modules/
