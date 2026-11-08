@@ -125,6 +125,26 @@ test("only the owner half starts a new lookup", async () => {
   assert.equal(apiCalls().length, settled + 1, "a new owner should ask gh");
 });
 
+test("an owner gh has nothing to say about is not asked about twice", async () => {
+  // The expensive case, and the one the guard used to miss: an org this login
+  // cannot list answers with no repos, so there was nothing to remember the
+  // lookup by and every pause in typing spawned another `gh`.
+  repos();
+  const context = cx({ spawn: "run" });
+  const picker = new Picker(view, context);
+  await context.settle();
+  const settled = apiCalls().length;
+
+  for (const text of ["acme/", "acme/a", "acme/ap"]) {
+    picker.text = text;
+    picker.look(context);
+    await context.settle();
+  }
+
+  assert.deepEqual(picker.suggestions, []);
+  assert.equal(apiCalls().length, settled + 1, "one lookup for the owner, not one per keystroke");
+});
+
 test("typing asks gh once per pause, not once per keystroke", async () => {
   repos("acme/app");
   const context = cx({ spawn: "run" });
