@@ -229,6 +229,22 @@ test("neither installer copies the files the app writes into the mod folder", ()
   }
 });
 
+test("both installers copy a subfolder rather than stopping at one", () => {
+  // The mod is flat today, so nothing here exercises this -- which is exactly
+  // why it is asserted. `cp` without -R refuses a directory and exits 1, and
+  // install.sh runs under `set -e`: the first subfolder anybody adds would end
+  // the install with nothing copied. robocopy /MIR recurses by definition.
+  const sh = read(join(ROOT, "tools", "install.sh"));
+  const copies = sh.match(/^\s*cp\s[^\n]*"\$dst\/"/gm) ?? [];
+  assert.ok(copies.length > 0, "install.sh no longer copies the mod the way this test expects");
+  for (const line of copies) {
+    assert.match(line, /\bcp\s+-[A-Za-z]*[Rr]/, `install.sh copies the mod without -R: ${line.trim()}`);
+  }
+
+  const ps1 = read(join(ROOT, "tools", "install.ps1"));
+  assert.match(ps1, /robocopy[^\n]*\/MIR/, "install.ps1 must mirror the folder, which recurses");
+});
+
 test("the files the app writes are ignored by git", () => {
   const ignored = read(join(ROOT, ".gitignore"));
   for (const name of ["gpui-kit.d.ts", "jsconfig.json"]) {
