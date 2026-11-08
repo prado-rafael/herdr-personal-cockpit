@@ -143,6 +143,37 @@ test("the only bare imports are the three the app injects", () => {
   }
 });
 
+// What each of these may import, as the README's table claims. Asserted
+// because it is the whole result of splitting kit.js: a file that cannot reach
+// the app cannot decide anything, and a file that cannot reach the toolkit
+// cannot draw. One convenient import puts it back where it was.
+const ALLOWED = {
+  "kit.js": { deny: ["herdr"], why: "kit.js draws; it must not decide" },
+  "dock.js": { deny: ["gpui-kit", "gpui-base"], why: "dock.js decides; it must not draw" },
+  "checks.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "checks.js is vocabulary" },
+  "yaml.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "yaml.js is a parser" },
+};
+
+test("the files that must not reach the app or the toolkit do not", () => {
+  for (const [name, { deny, why }] of Object.entries(ALLOWED)) {
+    const path = join(MOD, name);
+    assert.ok(existsSync(path), `${name} is gone -- update this test with it`);
+    const imports = [...read(path).matchAll(/\bfrom\s+["']([^"']+)["']/g)].map(([, s]) => s);
+    for (const forbidden of deny) {
+      assert.equal(imports.includes(forbidden), false, `${name} imports "${forbidden}" — ${why}`);
+    }
+  }
+});
+
+test("checks.js and yaml.js import nothing at all", () => {
+  // Their empty import list is the point: it is what makes them callable from
+  // a test with no setup, and what stops either becoming a place to put things.
+  for (const name of ["checks.js", "yaml.js"]) {
+    const imports = [...read(join(MOD, name)).matchAll(/\bfrom\s+["']([^"']+)["']/g)];
+    assert.deepEqual(imports.map(([, s]) => s), [], `${name} has grown an import`);
+  }
+});
+
 test("nothing reaches for a Node built-in or the network", () => {
   for (const path of sources()) {
     const body = read(path);

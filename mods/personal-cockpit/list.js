@@ -11,19 +11,14 @@ import { layout, nextCommand, openOverlay, props, run, theme, window as hostWind
 import {
   COLLAPSED_MAX,
   RAIL_MAX,
-  WIDE,
-  button,
   find,
   hostBlockFor,
-  header,
   minimise,
   moveTo,
   narrowSidebar,
   placeOf,
-  rail,
-  sectionHead,
-  shell,
-} from "./kit.js";
+} from "./dock.js";
+import { WIDE, button, header, rail, sectionHead, shell } from "./kit.js";
 import { ago, ghCommand } from "./github.js";
 import { repoOf } from "./config.js";
 import * as pulls from "./pulls.js";

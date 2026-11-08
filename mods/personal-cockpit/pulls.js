@@ -8,7 +8,8 @@
 
 import { div } from "gpui-kit";
 import { graphql, ago, agoShort } from "./github.js";
-import { RED, RUNNING, checkGlyph, row } from "./kit.js";
+import { RED, RUNNING } from "./checks.js";
+import { checkGlyph, row } from "./kit.js";
 
 export const panel = "pulls";
 // "My", because the panel below it is the same list for other people. The

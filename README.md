@@ -368,6 +368,38 @@ That is what the Herdr app's own `win98` does, and what `cockpit`, `redline` and
 `git log` has the before: the first commit is both panels exactly as they ran,
 the second is the merge.
 
+One mod is one folder, and the folder is flat — which is the app's shape, not a
+shortcut. `main.js` is required, `mod.json` says where the mod first appears,
+and everything else is `*.js` and `*.svg` beside them; the app's own `win98`
+keeps ten `.js` at its root and uses subfolders only for art. So the files
+carry the structure in their names:
+
+| File | Its one job |
+|---|---|
+| `main.js` | picks the screen `props.kind` asked for |
+| `list.js` | runs whichever panel it was given |
+| `picker.js` | the repo dialog |
+| `pulls.js` `issues.js` `routines.js` `team.js` | the four panels — one role, four players |
+| `dock.js` | where a panel lives, and how it moves |
+| `kit.js` | the chrome a panel draws |
+| `checks.js` | what a commit's check rollup means |
+| `github.js` | everything that talks to GitHub, through `gh` |
+| `config.js` | which repo a panel watches |
+| `conf.js` | the YAML file that configures a panel |
+| `yaml.js` | reads the five constructs those files use |
+
+The four panels are interchangeable to `list.js`, so they are players of one
+role rather than four special cases: each exports the same `load`, `sections`,
+`attention` and `rowOf`, and adding a fifth means writing a module and naming
+it in `main.js`. Nothing else has to know.
+
+The import lists are worth reading as the design. `kit.js` imports from the
+toolkit and nothing from `herdr`: it takes a theme and some data and returns an
+element, so it cannot decide anything. `dock.js` is the reverse — it imports
+`herdr` and nothing from the toolkit, because it reads the layout tree, decides,
+and sends a command back. `checks.js` and `yaml.js` import nothing at all. A
+file whose dependencies state its job is one you can put down and pick up.
+
 ## Licence
 
 MIT.
