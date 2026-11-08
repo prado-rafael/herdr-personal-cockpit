@@ -17,7 +17,8 @@
 
 import { div } from "gpui-kit";
 import { ago, agoShort, graphql, viewer } from "./github.js";
-import { RED, RUNNING, checkGlyph, row } from "./kit.js";
+import { RED, RUNNING } from "./checks.js";
+import { checkGlyph, row } from "./kit.js";
 import * as conf from "./conf.js";
 
 export const panel = "team";

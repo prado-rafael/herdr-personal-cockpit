@@ -143,6 +143,37 @@ test("the only bare imports are the three the app injects", () => {
   }
 });
 
+// What each of these may import, as the README's table claims. Asserted
+// because it is the whole result of splitting kit.js: a file that cannot reach
+// the app cannot decide anything, and a file that cannot reach the toolkit
+// cannot draw. One convenient import puts it back where it was.
+const ALLOWED = {
+  "kit.js": { deny: ["herdr"], why: "kit.js draws; it must not decide" },
+  "dock.js": { deny: ["gpui-kit", "gpui-base"], why: "dock.js decides; it must not draw" },
+  "checks.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "checks.js is vocabulary" },
+  "yaml.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "yaml.js is a parser" },
+};
+
+test("the files that must not reach the app or the toolkit do not", () => {
+  for (const [name, { deny, why }] of Object.entries(ALLOWED)) {
+    const path = join(MOD, name);
+    assert.ok(existsSync(path), `${name} is gone -- update this test with it`);
+    const imports = [...read(path).matchAll(/\bfrom\s+["']([^"']+)["']/g)].map(([, s]) => s);
+    for (const forbidden of deny) {
+      assert.equal(imports.includes(forbidden), false, `${name} imports "${forbidden}" — ${why}`);
+    }
+  }
+});
+
+test("checks.js and yaml.js import nothing at all", () => {
+  // Their empty import list is the point: it is what makes them callable from
+  // a test with no setup, and what stops either becoming a place to put things.
+  for (const name of ["checks.js", "yaml.js"]) {
+    const imports = [...read(join(MOD, name)).matchAll(/\bfrom\s+["']([^"']+)["']/g)];
+    assert.deepEqual(imports.map(([, s]) => s), [], `${name} has grown an import`);
+  }
+});
+
 test("nothing reaches for a Node built-in or the network", () => {
   for (const path of sources()) {
     const body = read(path);
@@ -227,6 +258,22 @@ test("neither installer copies the files the app writes into the mod folder", ()
     assert.match(body, /gpui-kit\.d\.ts/, `${name} must exclude gpui-kit.d.ts`);
     assert.match(body, /jsconfig\.json/, `${name} must exclude jsconfig.json`);
   }
+});
+
+test("both installers copy a subfolder rather than stopping at one", () => {
+  // The mod is flat today, so nothing here exercises this -- which is exactly
+  // why it is asserted. `cp` without -R refuses a directory and exits 1, and
+  // install.sh runs under `set -e`: the first subfolder anybody adds would end
+  // the install with nothing copied. robocopy /MIR recurses by definition.
+  const sh = read(join(ROOT, "tools", "install.sh"));
+  const copies = sh.match(/^\s*cp\s[^\n]*"\$dst\/"/gm) ?? [];
+  assert.ok(copies.length > 0, "install.sh no longer copies the mod the way this test expects");
+  for (const line of copies) {
+    assert.match(line, /\bcp\s+-[A-Za-z]*[Rr]/, `install.sh copies the mod without -R: ${line.trim()}`);
+  }
+
+  const ps1 = read(join(ROOT, "tools", "install.ps1"));
+  assert.match(ps1, /robocopy[^\n]*\/MIR/, "install.ps1 must mirror the folder, which recurses");
 });
 
 test("the files the app writes are ignored by git", () => {

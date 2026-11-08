@@ -52,7 +52,12 @@ for f in "$root/mods/$name"/*; do
     gpui-kit.d.ts|jsconfig.json) continue ;;   # the app writes these itself
     routines.yml|team.yml) continue ;;         # the person's, restored below
   esac
-  cp -- "$f" "$dst/"
+  # -R because the mod folder may hold directories. Without it `cp` refuses a
+  # directory, exits 1, and `set -e` ends the install at the first one -- so
+  # nothing is installed at all. The exclusions above are basenames at the top
+  # level, which is where all four of those files live, so a subfolder is
+  # copied whole and none of them can hide inside one.
+  cp -R -- "$f" "$dst/"
 done
 echo "mod      -> $dst"
 

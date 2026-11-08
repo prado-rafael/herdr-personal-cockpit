@@ -37,6 +37,13 @@ export function element(tag = "el") {
         if (prop === "child" || prop === "children") {
           for (const value of args.flat(Infinity)) adopt(self, value);
         }
+        // `when(cond, fn)` applies fn only when cond holds, and `hover(fn)`
+        // builds a style off the element. Both are run here rather than merely
+        // recorded: without that, anything wired inside one -- the header bar's
+        // own fold handler lives in a `when` -- would be unreachable, and a
+        // test could not press it.
+        if (prop === "when" && args[0] && typeof args[1] === "function") args[1](proxy);
+        if (prop === "hover" && typeof args[0] === "function") args[0](proxy);
         return proxy;
       };
     },
