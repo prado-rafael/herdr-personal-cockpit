@@ -48,7 +48,7 @@ const ATTENTION = ["needs-decision", "awaiting-merge"];
 /** Everything §2 requires of a task, checked when the file is read rather than
  *  when ▶ is pressed: a routine missing its Goal is worth knowing about while
  *  you are looking at the panel. */
-function validate(r, n, seen) {
+export function validate(r, n, seen) {
   const title = String(r.title ?? "").trim();
   const where = title ? `"${title}"` : `routine ${n + 1}`;
   const out = [];
@@ -84,7 +84,7 @@ function validate(r, n, seen) {
 // Lazy up to the closing `-->`, so a `}` inside a title does not cut it short.
 const MARKER = /<!--\s*routine\s+(\{[\s\S]*?\})\s*-->/;
 
-function markerOf(body) {
+export function markerOf(body) {
   const found = MARKER.exec(String(body ?? ""));
   if (!found) return null;
   try {
@@ -97,7 +97,7 @@ function markerOf(body) {
 
 // §2.1: section detection keys on the headings the issue form produces, so
 // `### Goal` and `### Acceptance` are a contract here, not a style choice.
-function bodyFor(r) {
+export function bodyFor(r) {
   const parts = [`### Goal\n\n${String(r.goal).trim()}`, `### Acceptance\n\n${String(r.acceptance).trim()}`];
   const notes = String(r.notes ?? "").trim();
   if (notes) parts.push(`### Notes\n\n${notes}`);
@@ -105,7 +105,7 @@ function bodyFor(r) {
   return parts.join("\n\n");
 }
 
-function labelsFor(r) {
+export function labelsFor(r) {
   // §1: a task *is* an open issue labeled `kraken-task`. §2: exactly one
   // `project:<name>`. §5.2 orders candidates by `priority:high` first.
   const labels = ["kraken-task", `project:${String(r.project).trim()}`];

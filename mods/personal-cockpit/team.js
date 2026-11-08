@@ -127,7 +127,10 @@ export function searchFor(config, people, login) {
 
 const updated = (pr) => Date.parse(pr.updatedAt) || 0;
 
-function shape(pr, login, people) {
+/** One pull request of somebody else's, judged. A pure function of a GraphQL
+ *  node, the login and the watch list -- exported for the same reason
+ *  `searchFor` above it is. */
+export function shape(pr, login, people) {
   const author = pr.author?.login ?? "ghost";
   const reviews = pr.latestOpinionatedReviews?.nodes ?? [];
   const requested = (pr.reviewRequests?.nodes ?? []).map((n) => n.requestedReviewer?.login).filter(Boolean);
