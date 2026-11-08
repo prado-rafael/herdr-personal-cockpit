@@ -15,7 +15,10 @@ param([switch]$NoSwitch, [switch]$NoLayout)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$herdr = Join-Path $env:USERPROFILE '.config\herdr-app'
+# HERDR_APP_HOME first, exactly as install.sh reads it and as the app itself
+# does: it is how the sandbox installs into a throwaway home, and how either
+# installer gets tested without touching the one being used.
+$herdr = if ($env:HERDR_APP_HOME) { $env:HERDR_APP_HOME } else { Join-Path $env:USERPROFILE '.config\herdr-app' }
 $name = 'personal-cockpit'
 
 if (-not (Test-Path $herdr)) { throw "No Herdr home at $herdr -- start the app once first." }

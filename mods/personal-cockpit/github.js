@@ -6,7 +6,7 @@
 // PowerShell script instead -- Windows-only, and a second login path to keep
 // working for no gain, since gh was installed and authenticated anyway.
 
-import { exec } from "herdr";
+import { appHome, exec, readTextFile } from "herdr";
 
 // Herdr's env is the one it started with: a gh installed after that isn't on
 // its PATH until the app restarts, so the usual install spots are tried too.
@@ -38,7 +38,81 @@ export function ghCommand() {
   return found ?? "gh";
 }
 
+// ---- demo mode ------------------------------------------------------------
+
+// One file in the Herdr home answers every call `gh` would have made.
+//
+// It is here and not in the panels because every panel, and the repo picker,
+// reaches GitHub through the one `ask` below -- so demo mode is a single
+// decision in a single place, and the judgement each panel makes about what it
+// gets back is the real one. A demo row went through `shape` exactly as a live
+// row does.
+//
+// What it is for: seeing all four panels full, and shooting them. Until now a
+// screenshot of a panel was a picture of whatever happened to be in somebody's
+// queue that morning -- not reproducible, and not publishable. It also makes
+// the window usable on a machine with no `gh`, no login and no network, which
+// is what a demonstration needs and what a plane has.
+//
+// It does *not* help `herdr-app check`: check renders once and does not wait on
+// later async states, so the panel it draws is still empty however fast the
+// answer is. gallery.js is the screen that covers that, by holding its data
+// rather than loading it.
+//
+// Scoped by the home rather than by a flag: `HERDR_APP_HOME` is how both
+// installers already target another home, so the file lives in the throwaway
+// one the sandbox builds and the real home never has it. There is no env var
+// because a mod cannot read one -- `exec` passes the environment to a child,
+// but nothing hands it to the JS.
+const DEMO = "personal-cockpit-demo.json";
+
+/**
+ * The routes, or null when this home has no demo file.
+ *
+ * Read on every call, not once: editing the file then shows up on the next
+ * poll with no reload, which is the whole point of a file you iterate
+ * screenshots with. A read that finds nothing costs a stat, next to the
+ * process spawn it is standing in front of.
+ */
+async function routes() {
+  try {
+    const body = await readTextFile(`${appHome()}/${DEMO}`);
+    if (body === null) return null;
+    const parsed = JSON.parse(body);
+    return Array.isArray(parsed?.routes) ? parsed.routes : null;
+  } catch {
+    // A demo file that does not parse must not look like a GitHub outage: fall
+    // through to the real gh and let the panel say whatever is true.
+    return null;
+  }
+}
+
+/**
+ * Every `gh` call goes through here. With no demo file it is `exec`.
+ *
+ * A route answers when its `match` appears anywhere in the arguments, which is
+ * the same rule the test suite's own `gh` double uses, for the same reason:
+ * the request is a GraphQL document or a REST path, and naming the one
+ * distinctive word in it is steadier than reproducing the whole thing.
+ *
+ * An unrouted call fails rather than returning empty, so a panel that reaches
+ * somewhere the demo file does not cover says so in its header instead of
+ * drawing a convincing blank.
+ */
+async function ask(gh, args) {
+  const demo = await routes();
+  if (!demo) return exec(gh, args);
+  const route = demo.find((r) => args.some((arg) => String(arg).includes(r.match)));
+  if (!route) return { code: 1, stdout: "", stderr: `demo mode: no route for ${args.join(" ")}` };
+  return { code: 0, stdout: JSON.stringify(route.json), stderr: "" };
+}
+
 export async function resolve() {
+  // Nothing is executed in demo mode, so there is no binary to go looking for
+  // -- and the probe would fail on a machine that has none, which is exactly
+  // the machine demo mode is for. Before the cache, so that turning the file on
+  // does not have to wait for a restart.
+  if (await routes()) return "gh";
   if (found) return found;
   let last = "";
   for (const candidate of CANDIDATES) {
@@ -80,7 +154,7 @@ export async function graphql(query, preview = null, vars = null) {
   const args = ["api", "graphql", "-f", `query=${query}`];
   for (const [name, value] of Object.entries(vars ?? {})) args.push("-f", `${name}=${value}`);
   if (preview) args.push("-H", preview);
-  const body = answer(await exec(gh, args), args);
+  const body = answer(await ask(gh, args), args);
   if (body.errors?.length) {
     const message = body.errors.map((e) => e.message).join("; ");
     throw fail(AUTH.test(message) ? "no-auth" : "error", message);
@@ -93,7 +167,7 @@ export async function graphql(query, preview = null, vars = null) {
 export async function rest(path) {
   const gh = await resolve();
   const args = ["api", path];
-  return answer(await exec(gh, args), args);
+  return answer(await ask(gh, args), args);
 }
 
 /** Opens an issue, and resolves with the one GitHub made.
@@ -106,7 +180,7 @@ export async function createIssue(repo, { title, body, labels = [] }) {
   const gh = await resolve();
   const args = ["api", "-X", "POST", `repos/${repo}/issues`, "-f", `title=${title}`, "-f", `body=${body}`];
   for (const label of labels) args.push("-f", `labels[]=${label}`);
-  return answer(await exec(gh, args), args);
+  return answer(await ask(gh, args), args);
 }
 
 /** `owner/name` for every repo the login can push to, for the repo picker's
@@ -121,7 +195,7 @@ export async function repoList(owner = null, limit = 100) {
     const args = ["repo", "list"];
     if (owner) args.push(owner);
     args.push("--limit", String(limit), "--json", "nameWithOwner,isPrivate,updatedAt");
-    const r = await exec(gh, args);
+    const r = await ask(gh, args);
     if (r.code !== 0) return [];
     const body = JSON.parse(r.stdout);
     return Array.isArray(body) ? body : [];
