@@ -2,14 +2,11 @@
 
 Stacked panels in the Herdr sidebar, under Spaces and Agents: your open pull
 requests across every repo you can read, the open pull requests of the people
-you watch, and the open issues of one coordination repo you pick — a kraken task
-queue. Each says in its header how many want something from you, keeps its last
-good list when the network blips, minimises to its own header bar, and can move
-to a matching column on the right. Click a row to open it in the browser.
-
-> This brief describes the pull request panels and Kraken Tasks. The Routines
-> panel shipped without being written up here; `README.md` and the comments in
-> `routines.js` are its documentation until someone backfills this file.
+you watch, the tasks you keep instead of rewriting, and the open issues of one
+coordination repo you pick — a kraken task queue. Each says in its header how
+many want something from you, keeps its last good list when the network blips,
+minimises to its own header bar, and can move to a matching column on the
+right. Click a row to open it in the browser.
 
 ![Personal Cockpit](preview.png)
 
@@ -32,7 +29,7 @@ To its right the usual work column: a 42 px tab bar, the active tab with card
 panes (radius 10, gap 8, 30 px always-on header, `lone: true`), a 28 px status
 bar. In `work-body` sit two more columns, both `hidden` until used: `panel`
 (Files and Changes, 368 px) and **`right-lists`** (380 px, `min` 300, `max`
-640) — the empty column either panel moves into.
+640) — the empty column any of the four panels moves into.
 
 Each panel is the same shape:
 
@@ -43,16 +40,20 @@ Each panel is the same shape:
   (`no repo`, `gh missing`, `sign in`, `no access`, `failed`, `stale`), or a
   plain 10 px `muted` count. Right-aligned, 13 px icons, 8 px apart: a
   pencil-square on Kraken Tasks only, then refresh (a `working` ring spinner
-  while loading), a gear on Kraken Tasks only, dock-left/dock-right, and
+  while loading), a gear on every panel but My pull requests — Team's and
+  Routines open their config file, Kraken Tasks opens the repo dialog, and a
+  block pinned with `props.repo` has none — then dock-left/dock-right, and
   minus/plus. The pencil has a glyph of its own rather than a bare plus,
   because a collapsed panel shows it next to the plus that expands. The bar
   itself is the minus/plus: it takes a `hover` background and a press anywhere
   on it that is not one of those icons folds the panel.
 - A **list**, 6 px side padding, 1 px between rows, scrollbar on overflow.
   Group titles are 10 px semibold `dim` with a `muted` count beside them.
-- Each **row** is 10 px × 5 px, radius 6, `hover` background, tooltip with
-  everything the row truncated. Line one: an 11 px glyph cell, the title in
-  12 px `foreground` truncating, and an age in 10 px `dim` (`now`, `6m`, `3d`).
+- Each **row** is 10 px × 5 px, radius 6, `hover` background, `selected`
+  background under the keyboard cursor, tooltip with everything the row
+  truncated. Line one: an 11 px glyph cell, the title in 12 px `foreground`
+  truncating, an optional 9.5 px `dim` tag (`draft` on a pull request,
+  `task created` on a routine), and an age in 10 px `dim` (`now`, `6m`, `3d`).
   Wider than 220 px a second line appears, indented under the title by the same
   11 px cell, 10.5 px.
 
@@ -60,9 +61,11 @@ Each panel is the same shape:
 glyph is `✓` in `ansi2` when checks passed, `✕` in `ansi1` when they failed, a
 spinning ring in `working` while they run, `·` in `dim` with no checks. The
 second line is `repo #number`, then what is true of it most-pressing-first —
-`conflicts`, `changes requested`, `N failing`, `N unresolved`, `building`,
-`N approved`, `review needed`, `ready`, `behind base`, `no checks` — then
-`+additions` in `ansi2` and `−deletions` in `ansi1`.
+`conflicts`, `changes requested`, then the failure named if exactly one job
+failed (`lint failing`, or `build failed` with no name to give) and `N failing`
+past that, `N unresolved`, `building` or `N running` past one, `N approved`,
+`review needed`, `ready`, `behind base`, `no checks` — then `+additions` in
+`ansi2` and `−deletions` in `ansi1`.
 
 **Team's pull requests** is the same row, from a search instead of
 `viewer.pullRequests`, and **grouped by the person who opened it**: one group
@@ -78,20 +81,36 @@ on somebody else's PR they are not yours to chase, and they are what a page of
 `blocked` for the first group, `·` in `dim` otherwise. The second line is
 `#number`, then the issue's own GitHub labels as badges in their own colours,
 then `N comments`. A label colour too dark to read on the sidebar is lifted
-toward white in 25% steps until its relative luminance clears 0.45; the hue is
-kept.
+toward white — every channel a quarter of the way to 255, up to eight times —
+until its BT.601 luma, `(0.299R + 0.587G + 0.114B) / 255`, clears 0.45. That is
+perceived brightness, not WCAG relative luminance, which is a different formula
+over gamma-linearised channels. The hue survives exactly: moving every channel
+the same fraction toward white scales `max − min` and each channel difference
+alike, so only saturation and lightness move.
 
-Narrower than 160 px either panel drops to a **rail**: its icon, tinted
-`blocked` when something needs you, and the count in a small pill.
+**Routines** groups into Needs you, In the queue, Ready and Paused, each group
+drawn only when it has rows, and the rows in the order `routines.yml` writes
+them — a list you keep is one whose rows stay where you left them. The first
+cell doubles as the row's button: `▶` in `accent` on a routine that is ready to
+run, the header's own spinner at the cell's 11 px while a press is in flight,
+`●` in `blocked` when the routine needs you, and `·` in `dim` otherwise. The
+second line is `project:<name>` in `muted`, then `invalid` in `ansi1`, `paused`
+in `dim` or `never run` in `dim`; then the task's own GitHub labels in `dim`,
+minus the two every kraken task carries (`kraken-task` and its `project:`),
+which say nothing the row has not said; then `closed` in `dim` when the last
+task is closed, and `#number` in `muted`. The age is when that task was opened.
+
+Narrower than 160 px a panel drops to a **rail**: its icon, tinted `blocked`
+when something needs you, and the count in a small pill.
 
 ## How it behaves
 
 - **Refresh.** My pull requests every 180 s, Team's every 120 s, Kraken Tasks
-  every 60 s, all of them on the refresh icon and on `r` while the panel holds
-  the keyboard. A refresh already running is not started again. The icon's
-  tooltip names the signed-in login (my pull requests), how many people are
-  watched or the query itself (team), or the watched repo (tasks), and when it
-  last succeeded.
+  and Routines every 60 s, all of them on the refresh icon and on `r` while the
+  panel holds the keyboard. A refresh already running is not started again. The
+  icon's tooltip names the signed-in login (my pull requests), how many people
+  are watched or the query itself (team), or the watched repo (tasks and
+  routines), and when it last succeeded.
 - **A failed poll keeps the list.** If a refresh fails while a good list is on
   screen, the list stays, the header says `stale`, and a 10 px `dim` footer
   reads `Couldn't refresh · showing 6m ago` with the error as its tooltip. Only
@@ -121,6 +140,43 @@ Narrower than 160 px either panel drops to a **rail**: its icon, tinted
   under an *empty* list and not only under a full one: a panel configured by a
   file is usually empty because of that file, and the footnote is where the
   file's problems are said.
+- **A routine opens a task.** `▶` files the routine as an issue in the queue —
+  `coordination_repo` in `routines.yml`, or whatever Kraken Tasks is watching —
+  titled by the routine, bodied `### Goal` / `### Acceptance` / `### Notes`
+  (that last one only when written), and labelled `kraken-task`,
+  `project:<name>` and `priority:<p>` when given. Those headings and labels are
+  kraken's `PROTOCOL.md` §1 and §2, not a style choice: a task with no project
+  label is invisible to every conforming worker. The row carries `task created`
+  for 6 s, and after that the list says it on its own.
+- **A routine is identified by its title**, written into an HTML comment in the
+  body (`<!-- routine {"title":"…"} -->`, kraken's own marker convention) and
+  read back to tell whose task is whose. So renaming the *issue* on GitHub is
+  safe and renaming the routine in the file is not: the `▶` returns and a
+  second task can be opened, with the loose one sitting in Kraken Tasks.
+- **While a routine's task is open its `▶` is gone**, because two workers on one
+  goal deliver the same work twice. Close the task to run it again — that is the
+  only guard, and it is enough because the queue is the state: nothing about a
+  routine is kept locally, so two machines read the same answer out of GitHub
+  rather than disagreeing from their own `shared.json`. One exception, in
+  memory only: GitHub answers the create with the issue but takes a few seconds
+  to list it, and in that window a poll correctly finds nothing and would put
+  the button back on a routine that has just run (which is how two tasks got
+  opened three seconds apart). The create's own answer is held until the list
+  returns that number, or for five minutes if it never does.
+- **A broken routine says so in its row**, not when the button is pressed: the
+  file is validated as it is read, so a missing Goal, Acceptance, project or
+  title draws `invalid` with the reason in the tooltip and in the footnote.
+- **Nothing here is scheduled.** The `▶` is the only thing that opens a task:
+  no timer, no daemon, no launchd and no Task Scheduler, so there is nothing to
+  install and nothing that behaves differently per platform. A cron field is the
+  obvious next step and deliberately absent; `git log` holds a tested
+  implementation of one if it is ever wanted.
+- **The queue panels agree straight away.** Opening a task runs the mod command
+  `personal-cockpit.refresh`, which reaches every shown copy — so Kraken Tasks
+  shows the new task now instead of up to 60 s later. The copy that pressed the
+  button is refreshing anyway and its `busy` guard drops the duplicate; the pull
+  request panels reload too, one `gh` call each that they did not need, and
+  cheaper than a second signalling mechanism.
 - **Keyboard.** With the panel focused (`pane.go` reaches it, `focusable` is
   true): `↑`/`↓` move a selection that draws with the `selected` background,
   `enter` opens it, `r` refreshes, `c` opens the repo dialog or the config file.
@@ -163,11 +219,18 @@ mods/personal-cockpit/
   main.js      the one exported View; picks a screen by props.kind
   list.js      the list panel: state, refresh, setup states, keyboard, render
   picker.js    the repo dialog
-  kit.js       header, rail, row, section head, badge, button, spinner, shell,
-               checkGlyph/RED/RUNNING, minimise, moveTo,
-               find/parentOf/destinations/placeOf, hostBlockFor, WIDE 220,
-               COLLAPSED 42, COLLAPSED_MAX 60, RAIL_MAX 160,
-               RIGHT "right-lists"
+  kit.js       the chrome a panel draws: header, rail, row, section head,
+               badge, button, spinner, shell, checkGlyph, CELL 11, WIDE 220.
+               Takes a theme and some data, returns an element — it imports
+               from the toolkit and nothing from `herdr`, so it decides nothing
+  dock.js      where a panel lives and how it moves: find / parentOf /
+               destinations / placeOf / hostBlockFor / narrowSidebar,
+               minimise, moveTo, COLLAPSED 42, COLLAPSED_MAX 60,
+               RAIL_MAX 160, RIGHT "right-lists". The reverse of kit.js — it
+               imports `herdr` and nothing from the toolkit, because it reads
+               the layout tree, decides, and sends a command back
+  checks.js    RED and RUNNING: what a commit's check rollup means, in the two
+               questions a row asks of it. Imports nothing
   github.js    gh discovery, graphql(), rest(), createIssue(), repoList(),
                issueTemplates(), viewer(), ago(), agoShort(), and the typed
                error kinds
@@ -185,7 +248,10 @@ mods/personal-cockpit/
   *.example.yml  routines and team, seeded on install and by the gear
 ```
 
-One mod, eleven modules. Four layout blocks point at it with
+One mod, fourteen modules, one flat folder — the app's own shape, not a
+shortcut: `main.js` and `mod.json` are required and everything else is `*.js`
+and `*.svg` beside them, the way the shipped `win98` keeps ten `.js` at its
+root. Four layout blocks point at it with
 `props: { kind: "pulls" | "team" | "routines" | "issues", node: "<block id>" }`,
 and it opens its own dialog with `openOverlay({ mod: "personal-cockpit", props:
 { kind: "repo-picker", panel, current } })` — which is why the dialog needs no
@@ -233,16 +299,19 @@ adding a connection to one of these, and do not estimate.
   braces. Remove it and the panel reports gh missing on a machine that has it.
 - **One mod means one key namespace.** `keys.json` sections are `mod:<name>`,
   and `<mod>.<command>` is delivered to *every shown copy* — so
-  `personal-cockpit.refresh` refreshes both panels, and there is no way to bind
-  a key to only one of them. The in-panel `on_key_down` keys (`r`, `c`, arrows,
-  enter) do go to just the focused panel. This is the price of the two panels
-  sharing their code; it was a deliberate trade.
-- **Don't discover the host block by mod name.** Two blocks run this mod, so
-  `content.mod === "personal-cockpit"` matches both. `hostBlockFor` goes by
-  `content.props.kind`, with `props.node` winning when the layout states it.
+  `personal-cockpit.refresh` refreshes all four panels, and there is no way to
+  bind a key to only one of them. The in-panel `on_key_down` keys (`r`, `c`,
+  arrows, enter) do go to just the focused panel. This is the price of the four
+  panels sharing their code; it was a deliberate trade — and `routines.js`
+  spends it on purpose, fanning a refresh out to every copy when a `▶` changes
+  the queue.
+- **Don't discover the host block by mod name.** Four blocks run this mod, so
+  `content.mod === "personal-cockpit"` matches all of them. `hostBlockFor`
+  goes by `content.props.kind`, with `props.node` winning when the layout
+  states it.
 - **Hardcoded node ids break when a layout renames them.** An earlier version
   of the tasks panel wrote the layout file directly and looked for
-  `sidebar-lists` by name. `kit.destinations` finds the sidebar as "the node
+  `sidebar-lists` by name. `dock.destinations` finds the sidebar as "the node
   holding the `spaces` mod" and the work row as "the node holding the `tab`
   block" instead, so a differently-shaped layout degrades to hiding the move
   button rather than throwing.
@@ -286,6 +355,19 @@ adding a connection to one of these, and do not estimate.
 - **`props.repo` pins a block and hides the gear.** A layout that names a repo
   meant that block to be that repo; use it to show personal and work side by
   side, and expect no picker on those.
+- **Every list is one page, and the ones that can overflow say so.** My pull
+  requests asks for 30, Team's for 50 (footnote `First 50 of N` past that),
+  Kraken Tasks for 100 (footnote `First 100 tasks` when it comes back full),
+  Routines reads 100 issues to find each routine's last task. One page is
+  already more than a sidebar panel can show, and a second would double what
+  every poll costs. The picker shows 8 suggestions and remembers 6 repos.
+- **The shipped layout pins the sidebar, so the rail is not reachable by
+  dragging it.** `sidebar` is `resizable: false` — there is no boundary to drag
+  — and `right-lists` has `min: 300`, so docking a panel there cannot reach
+  160 either. The rail itself is right and goes by the panel's own measured
+  width: it draws when the sidebar is folded, when a `layout.resize` makes it
+  narrow, or in a layout that leaves the sidebar resizable. Don't write a check
+  that asks someone to drag this one.
 - **Two different pictures, easy to confuse.** `preview.png` at the repo root
   is the herdr.dev gallery card and the README image. `layouts/cockpit.svg` is
   the thumbnail inside the app, in Settings → Look, and it only appears
@@ -303,10 +385,13 @@ adding a connection to one of these, and do not estimate.
   `SOURCES` in `list.js`, and a block in the layout. `panel` names the block,
   the remembered height and the cache — it is not the title, which is why
   renaming "Pull requests" to "My pull requests" left `panel: "pulls"` alone.
-- **The cache is per mod copy.** `localStorage` lands in
-  `data/personal-cockpit/store-<hash>.json`, hashed from the props — so two
-  blocks, or the same block with a different repo, do not share one. It is
-  keyed by repo inside as well.
+- **The cache is per mod copy, and only Kraken Tasks has one.** `localStorage`
+  lands in `data/personal-cockpit/store-<hash>.json`, hashed from the props —
+  so two blocks, or the same block with a different repo, do not share one.
+  The entry inside names the repo too (`cockpit.issues:<owner>/<name>`), which
+  is what makes switching repos show the right list before the network answers.
+  A corrupt or unwritable cache is swallowed: it is worth one spinner, never a
+  broken panel.
 - **Only `gh` is checked at startup, not the repo.** A repo you cannot see is
   found out on the first call, which is what the `not-found` state is for.
 
@@ -340,8 +425,9 @@ adding a connection to one of these, and do not estimate.
   pressing Enter replaces the list without a restart, and the repo appears
   under Recent next time.
 - Typing a repo you cannot read gives `no access` and a Choose another button.
-- Dragging the sidebar below 160 px turns both panels into rails with their
-  counts; widening restores the rows.
+- `layout.resize {"id": "sidebar", "px": 120}` turns every panel into a rail
+  with its count, and resizing back to 268 restores the rows. Not by dragging:
+  the shipped `sidebar` is `resizable: false`, so there is no boundary to pull.
 - Minus collapses a panel to a 42 px header; plus returns it to the height it
   had. Pressing the header bar anywhere else does the same both ways, and
   pressing refresh, the gear, the pencil or the dock arrow does not fold it.
@@ -349,8 +435,23 @@ adding a connection to one of these, and do not estimate.
   moving the last one out hides the column but keeps its width.
 - Killing the network mid-refresh leaves the rows on screen with `stale` in the
   header, not an empty panel.
-- `↑`/`↓` move the selection in both panels and `enter` opens the selected row
+- `↑`/`↓` move the selection in every panel and `enter` opens the selected row
   in the browser.
+- With no `routines.yml`, Routines draws one row reading `No routines.yml` and
+  the gear writes one from the example and opens it.
+- A routine missing its Goal, Acceptance, project or title draws `invalid` with
+  the reason in its tooltip and in the footnote, and has no `▶` — the file is
+  checked when it is read, not when the button is pressed.
+- `▶` on a ready routine files an issue in the queue labelled `kraken-task` and
+  `project:<name>`, with `### Goal` and `### Acceptance` in the body and the
+  `<!-- routine … -->` marker carrying the title. The row shows `task created`
+  for 6 s, its `▶` is gone while that task is open, and Kraken Tasks shows the
+  new task at once rather than on its own next poll.
+- Pressing `▶` twice in a row opens one task, not two: the second press has no
+  button to hit, and the create is held until the issues list catches up.
+- Closing that task on GitHub brings the `▶` back on the next poll, and the row
+  goes on naming it — `closed`, its number and its age — which is how the panel
+  says when the routine last ran.
 - The pencil on Kraken Tasks opens `…/issues/new?template=task.yml` for the
   watched repo, and Pull requests has no pencil at all.
 - Pointed at a repo with no issue templates, New task still works and lands on
