@@ -7,7 +7,7 @@
 
 import { div } from "gpui-kit";
 import { v_flex } from "gpui-base";
-import { layout, nextCommand, openOverlay, props, run, theme, window as hostWindow } from "herdr";
+import { layout, nextCommand, openOverlay, props, run, setShared, theme, window as hostWindow } from "herdr";
 import {
   COLLAPSED_MAX,
   RAIL_MAX,
@@ -21,12 +21,22 @@ import {
 import { WIDE, button, header, rail, sectionHead, shell } from "./kit.js";
 import { ago, ghCommand } from "./github.js";
 import { repoOf } from "./config.js";
+import { shareKey } from "./urgent.js";
 import * as pulls from "./pulls.js";
 import * as issues from "./issues.js";
 import * as routines from "./routines.js";
 import * as team from "./team.js";
 
-const SOURCES = { pulls, issues, routines, team };
+/** The panels, by the `props.kind` that names one. Exported because the drawer
+ *  draws every panel's urgent rows and this is the roster of panels there are
+ *  -- it reads what each one published without running any of them. */
+export const SOURCES = { pulls, issues, routines, team };
+
+// A mod command reaches every copy on screen, which is what makes `refresh`
+// useful and what would make `kit` open four identical dialogs at once. One
+// copy has to be the one that answers; the first panel is an arbitrary but
+// stable choice, and it is the one `herdr-app check` renders anyway.
+const OPENS_KIT = Object.values(SOURCES)[0].panel;
 
 // How long a row says what its button just did. Long enough to read on the way
 // past, short enough that it is gone before it could describe anything stale.
@@ -82,6 +92,7 @@ export class List {
         else if (command === "refresh") this.refresh(cx);
         else if (command === "configure") this.configure();
         else if (command === "new") this.openNew(cx);
+        else if (command === "kit" && this.source.panel === OPENS_KIT) this.openKit();
         cx.notify();
       }
     });
@@ -89,10 +100,28 @@ export class List {
 
   // ---- data ---------------------------------------------------------------
 
+  /** The rows this panel would put in the drawer, left where the drawer can
+   *  read them. See urgent.js for why it is shared state and not a second set
+   *  of calls.
+   *
+   *  Called when a load lands, never from `render`: writing shared state
+   *  re-renders every mod, and a write during a render would be a render that
+   *  asks for another one, forever.
+   *
+   *  A panel with no repo, no `gh` or no login publishes nothing. The drawer is
+   *  about work waiting on you; a panel's own setup trouble is said in that
+   *  panel's header, which is where the button that fixes it is. A refresh that
+   *  failed over a good list leaves `state` at "ok", so those rows stay -- the
+   *  drawer goes stale exactly when the panel does. */
+  publish() {
+    setShared(shareKey(this.source.panel), this.state === "ok" ? this.source.urgent(this.items) : []);
+  }
+
   refresh(cx) {
     if (this.busy) return;
     if (this.source.needsRepo && !this.repo) {
       this.state = "no-repo";
+      this.publish();
       cx.notify();
       return;
     }
@@ -124,6 +153,7 @@ export class List {
         // Whatever a row's button was waiting for, this list is now newer than
         // it: the spinner has nothing left to stand for.
         this.acting = null;
+        this.publish();
         cx.notify();
       }
     });
@@ -207,6 +237,19 @@ export class List {
       kind: "dialog",
       width: 420,
       props: { kind: "repo-picker", panel: this.source.panel, current: this.repo },
+    });
+  }
+
+  /** The chrome gallery (gallery.js). Not a panel feature -- it is how a change
+   *  to the shared chrome gets looked at -- but a command only reaches a mod
+   *  that is already on screen, and a panel is the copy that always is. */
+  openKit() {
+    openOverlay({
+      mod: "personal-cockpit",
+      kind: "dialog",
+      width: 760,
+      height: 620,
+      props: { kind: "kit" },
     });
   }
 

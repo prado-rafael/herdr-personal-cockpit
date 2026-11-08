@@ -152,6 +152,7 @@ const ALLOWED = {
   "dock.js": { deny: ["gpui-kit", "gpui-base"], why: "dock.js decides; it must not draw" },
   "checks.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "checks.js is vocabulary" },
   "yaml.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "yaml.js is a parser" },
+  "urgent.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "urgent.js is an order, not a screen" },
 };
 
 test("the files that must not reach the app or the toolkit do not", () => {
@@ -165,10 +166,11 @@ test("the files that must not reach the app or the toolkit do not", () => {
   }
 });
 
-test("checks.js and yaml.js import nothing at all", () => {
+test("checks.js, yaml.js and urgent.js import nothing at all", () => {
   // Their empty import list is the point: it is what makes them callable from
-  // a test with no setup, and what stops either becoming a place to put things.
-  for (const name of ["checks.js", "yaml.js"]) {
+  // a test with no setup, and what stops any of them becoming a place to put
+  // things.
+  for (const name of ["checks.js", "yaml.js", "urgent.js"]) {
     const imports = [...read(join(MOD, name)).matchAll(/\bfrom\s+["']([^"']+)["']/g)];
     assert.deepEqual(imports.map(([, s]) => s), [], `${name} has grown an import`);
   }
@@ -219,12 +221,17 @@ test("the shipped layout parses and its preview is beside it", () => {
 
 test("every block running this mod asks for a kind the mod knows", () => {
   const layout = JSON.parse(read(join(ROOT, "layouts", "cockpit.json")));
-  const known = new Set(["pulls", "issues", "routines", "team", "repo-picker"]);
+  const known = new Set(["pulls", "issues", "routines", "team", "repo-picker", "urgent", "kit"]);
   const blocks = [];
 
+  // `floating` as well as `children`: a floating block sits over the tree
+  // rather than in it, so a walk of the children alone would have skipped the
+  // drawer -- and a typo in its `kind` draws the pull requests panel on the
+  // window's edge, silently, since an unknown kind falls back to the list.
   const walk = (node) => {
     if (node?.content?.mod === MOD_NAME) blocks.push(node);
     for (const child of node?.children ?? []) walk(child);
+    for (const child of node?.floating ?? []) walk(child);
   };
   walk(layout);
   walk(layout.layout ?? null);
@@ -234,6 +241,20 @@ test("every block running this mod asks for a kind the mod knows", () => {
     const kind = block.content.props?.kind;
     assert.ok(known.has(kind), `block ${block.id} asks for kind "${kind}"`);
   }
+});
+
+test("the shipped layout hangs the drawer off an edge, with a peek", () => {
+  // The strip the drawer draws is exactly `peek` wide: any other number and
+  // the count sits half off the screen. drawer.js names it EDGE.
+  const layout = JSON.parse(read(join(ROOT, "layouts", "cockpit.json")));
+  const floating = layout.floating ?? [];
+  const drawer = floating.find((block) => block.content?.props?.kind === "urgent");
+  assert.ok(drawer, "the drawer must be a floating block, not one in the tree");
+  assert.ok(["left", "right"].includes(drawer.edge), `edge: ${drawer.edge} -- peek is for the sides only`);
+  assert.equal(typeof drawer.peek, "number");
+
+  const edge = Number(read(join(MOD, "drawer.js")).match(/^const EDGE = (\d+);$/m)?.[1]);
+  assert.equal(drawer.peek, edge, "layouts/cockpit.json's peek and drawer.js's EDGE have drifted");
 });
 
 // ---- the promises the installers make -------------------------------------

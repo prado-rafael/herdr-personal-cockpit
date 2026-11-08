@@ -25,6 +25,15 @@ export const host = {
   shared: new Map(),
   layout: null,
   props: null,
+  /**
+   * Where a floating mod sits, as `placement()` answers it, or null for one
+   * that does not float -- which is every screen but the drawer, and the
+   * drawer too when a layout puts it in an ordinary block.
+   *
+   * Kept rather than recorded: it is state the app holds about this copy, and
+   * the drawer reads it to decide which side its peek strip goes on.
+   */
+  placement: null,
   /** Resolves the `nextCommand()` a panel is awaiting. */
   deliver: null,
   exec: [],
@@ -41,6 +50,7 @@ export function reset(over = {}) {
   host.shared = new Map();
   host.layout = null;
   host.props = null;
+  host.placement = null;
   host.deliver = null;
   host.exec = [];
   host.run = [];
@@ -58,6 +68,8 @@ export const window = () => ({ platform: host.platform });
 export const props = () => host.props;
 
 export const layout = () => host.layout;
+
+export const placement = () => host.placement;
 
 export const shared = (key) => host.shared.get(key);
 

@@ -138,3 +138,29 @@ export const rightColumn = (children = []) => ({
   size: { px: 380 },
   children,
 });
+
+// ---- the floating drawer (drawer.js) --------------------------------------
+
+/** `placement()`'s answer, as the app gives it to a floating mod. Defaults to
+ *  where the shipped layout hangs the drawer: the right edge, pointer away.
+ *  `vertical` follows the edge, because that is the one part of this the app
+ *  derives rather than being told. */
+export const placedAt = (edge = "right", over = {}) => ({
+  edge,
+  align: "center",
+  vertical: edge === "left" || edge === "right",
+  hovered: false,
+  dragging: false,
+  ...over,
+});
+
+/** A row as a panel's `urgent` returns it, for the drawer to draw. */
+export const urgentRow = (over = {}) => ({
+  key: "pulls:acme/app#7",
+  verb: "fix",
+  title: "Tidy the header",
+  reason: "lint failing",
+  url: "https://github.com/acme/app/pull/7",
+  at: NOW - 30 * 60_000,
+  ...over,
+});

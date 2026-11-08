@@ -215,11 +215,14 @@ export function row(t, o) {
     .py(5)
     .gap(2)
     .rounded(6)
-    .cursor_pointer()
     .tooltip(o.tooltip)
     .when(Boolean(o.selected), (e) => e.bg(t.selected))
     .hover((s) => s.bg(t.hover))
-    .on_click(o.onClick)
+    // A row with nowhere to go says so by not looking pressable. Every panel
+    // row has a URL, but the drawer draws a broken routine, which has no task
+    // and so no page -- and a pointer that changes over something that does
+    // nothing is the row promising something it cannot do.
+    .when(Boolean(o.onClick), (e) => e.cursor_pointer().on_click(o.onClick))
     .child(line1);
 
   if (!o.wide || !o.second?.length) return el;

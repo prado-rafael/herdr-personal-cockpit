@@ -10,6 +10,7 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
 import { List } from "../mods/personal-cockpit/list.js";
+import { shareKey } from "../mods/personal-cockpit/urgent.js";
 import { host, reset } from "./support/host/herdr.js";
 import { cx } from "./support/cx.js";
 import { gh, apiCalls } from "./support/gh.js";
@@ -200,6 +201,90 @@ test("a poll already in flight is not started again", async () => {
   assert.equal(apiCalls().length, 1, "the panel polled while it was already polling");
 });
 
+// ---- publishing to the drawer ---------------------------------------------
+
+// The drawer is another copy of this mod and cannot see this one's items, so a
+// panel leaves its urgent rows in shared state for it to read (urgent.js). The
+// rule is that it publishes exactly what it is showing -- so these are about
+// the states where "what it is showing" is not a list.
+
+const published = (panel) => host.shared.get(shareKey(panel));
+
+test("a load publishes the panel's urgent rows for the drawer", async () => {
+  host.props = { kind: "pulls" };
+  pullsAnswer([prNode({ mergeable: "CONFLICTING" })]);
+  const context = cx({ spawn: "run" });
+  new List(view, context);
+  await context.settle();
+
+  assert.equal(published("pulls").length, 1);
+  assert.equal(published("pulls")[0].reason, "conflicts");
+});
+
+test("a panel with nothing urgent publishes an empty list, not nothing at all", async () => {
+  // The difference matters: the drawer has to be able to tell "this panel has
+  // no trouble" from "this panel has never run".
+  host.props = { kind: "pulls" };
+  pullsAnswer([prNode({})]);
+  const context = cx({ spawn: "run" });
+  new List(view, context);
+  await context.settle();
+
+  assert.deepEqual(published("pulls"), []);
+});
+
+test("a panel that cannot load publishes nothing", async () => {
+  // Its own trouble is said in its own header, where the button that fixes it
+  // is. The drawer is for work waiting on you.
+  host.props = { kind: "pulls" };
+  host.onExec = () => ({ code: 1, stdout: "", stderr: "gh: not logged in" });
+  const context = cx({ spawn: "run" });
+  const list = new List(view, context);
+  await context.settle();
+
+  assert.equal(list.state, "no-auth");
+  assert.deepEqual(published("pulls"), []);
+});
+
+test("a panel with no repo chosen publishes nothing, so old rows do not linger", async () => {
+  // The early return in `refresh` never reaches a load, which is exactly where
+  // a stale list would have been left behind.
+  host.props = { kind: "issues" };
+  host.shared.set(shareKey("issues"), [{ key: "issues:1", verb: "decide", title: "old", reason: "x", url: null, at: 1 }]);
+  const context = cx({ spawn: "run" });
+  const list = new List(view, context);
+  await context.settle();
+
+  assert.equal(list.state, "no-repo");
+  assert.deepEqual(published("issues"), []);
+});
+
+test("a failed refresh over a good list keeps publishing it", async () => {
+  // The panel keeps the list and calls it old, so the drawer keeps the rows
+  // and is old in exactly the same way. One of them going blank while the
+  // other did not would be the two disagreeing.
+  host.props = { kind: "pulls" };
+  pullsAnswer([prNode({ mergeable: "CONFLICTING" })]);
+  const context = cx({ spawn: "run" });
+  const list = new List(view, context);
+  await context.settle();
+  assert.equal(published("pulls").length, 1);
+
+  host.onExec = () => ({ code: 1, stdout: "", stderr: "could not resolve host" });
+  await context.tick(list.source.refreshMs);
+
+  assert.match(list.stale, /could not resolve host/);
+  assert.equal(published("pulls").length, 1);
+});
+
+test("each panel publishes under its own key", async () => {
+  // Shared with the remembered height and the chosen repo: one key per panel,
+  // or two panels would overwrite each other's rows.
+  const keys = ["pulls", "issues", "routines", "team"].map(shareKey);
+  assert.equal(new Set(keys).size, keys.length, keys.join(", "));
+  assert.deepEqual(keys[0], "cockpit.pulls.urgent");
+});
+
 // ---- the repo changing under it -------------------------------------------
 
 test("a new repo clears the old list and loads the new one", async () => {
@@ -327,6 +412,63 @@ test("the gear of the repo-keyed panel opens the picker as an overlay", () => {
   assert.equal(host.overlays.length, 1);
   assert.equal(host.overlays[0].mod, "personal-cockpit");
   assert.equal(host.overlays[0].props.kind, "repo-picker");
+});
+
+// ---- commands the app sends -----------------------------------------------
+
+// A mod command reaches every copy on screen. That is what makes `refresh`
+// worth sending and what makes anything that opens a window need a guard.
+
+/** Start a panel and let its command loop park on `nextCommand()`. */
+async function running(kind, context) {
+  host.props = { kind };
+  const list = new List(view, context);
+  await context.settle();
+  return list;
+}
+
+test("the kit command opens the chrome gallery", async () => {
+  const context = cx({ spawn: "run" });
+  pullsAnswer();
+  await running("pulls", context);
+
+  host.deliver("kit");
+  await context.settle();
+
+  assert.equal(host.overlays.length, 1);
+  assert.equal(host.overlays[0].props.kind, "kit");
+  assert.equal(host.overlays[0].mod, "personal-cockpit");
+});
+
+test("only one panel answers the kit command, so one gallery opens and not four", async () => {
+  // All four are on screen in the shipped layout and all four get the command.
+  // Without the guard this is four identical dialogs stacked on each other.
+  for (const kind of ["issues", "routines", "team"]) {
+    reset();
+    host.layout = tree({ sidebar: [panelBlock(kind)] });
+    const context = cx({ spawn: "run" });
+    await running(kind, context);
+
+    host.deliver("kit");
+    await context.settle();
+
+    assert.deepEqual(host.overlays, [], `${kind} should have ignored it`);
+  }
+});
+
+test("refresh, by contrast, is answered by every copy", async () => {
+  // The other half of the same rule: a routine opening a task sends this so
+  // that the tasks panel does not sit a minute behind what just happened.
+  const context = cx({ spawn: "run" });
+  pullsAnswer();
+  const list = await running("pulls", context);
+  const before = apiCalls().length;
+
+  host.deliver("refresh");
+  await context.settle();
+
+  assert.ok(apiCalls().length > before, "the panel did not reload");
+  assert.equal(list.state, "ok");
 });
 
 // ---- drawing --------------------------------------------------------------
