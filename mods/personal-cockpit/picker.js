@@ -29,7 +29,10 @@ export class Picker {
     this.text = this.current ?? "";
     this.suggestions = [];
     this.looking = false;
-    this.owner = null;
+    // Whose repos were last asked for. `undefined` until the first lookup goes
+    // out, because `null` is already a real value here -- "nothing typed before
+    // a slash", meaning the signed-in account's own.
+    this.owner = undefined;
 
     this.input = InputState.new({ value: this.text, placeholder: "owner/name" });
     if (this.text) this.input.set_selected_range({ start: 0, end: this.text.length });
@@ -64,7 +67,14 @@ export class Picker {
     // Only the owner half decides whose repos to list, so typing the name part
     // does not start a new lookup.
     const owner = this.text.includes("/") ? this.text.split("/")[0].trim() : null;
-    if (owner === this.owner && this.suggestions.length) return;
+    // Asked about, not answered usefully, is still asked about. An org this
+    // login cannot list -- or a typo -- comes back empty, and guarding on
+    // `this.suggestions.length` instead let that case through: every pause in
+    // typing spawned another `gh repo list`, which is the one thing `schedule`
+    // above exists to prevent. The cost is that a lookup lost to a dropped
+    // connection is not retried, and suggestions are a nicety: the field below
+    // takes a typed `owner/name` either way.
+    if (owner === this.owner) return;
     this.owner = owner;
     this.looking = true;
     cx.spawn(async (cx) => {

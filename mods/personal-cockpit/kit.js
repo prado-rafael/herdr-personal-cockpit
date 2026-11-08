@@ -93,9 +93,10 @@ export function header(t, o) {
   } else if (o.count) {
     left.push(div().flex_none().text_size(10).text_color(t.muted).child(String(o.count)));
   }
-  if (o.note) {
-    left.push(div().flex_none().text_size(10).text_color(t.dim).truncate().tooltip(o.noteTip ?? o.note).child(o.note));
-  }
+  // Nothing else goes on this line. What a panel is watching -- the login, the
+  // query, the repo -- rides in the refresh icon's tooltip, which list.js
+  // builds as `stamp`: the title is already giving way to the number beside it,
+  // and a third thing would be giving way to both.
 
   const actions = [];
   // First, because it is the one thing here that makes something rather than

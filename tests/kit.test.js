@@ -108,7 +108,6 @@ test("the header builds with everything at once", () => {
       id: "issues",
       title: "Kraken Tasks",
       attention: 3,
-      note: "acme/tasks",
       place: "sidebar",
       host: { id: "issues" },
       collapsed: false,
