@@ -277,6 +277,22 @@ test("every module the recipe lists is a file, and every file is listed", () => 
   }
 });
 
+test("the shipped layout puts the panels where, and in the order, it says", () => {
+  // Not a style preference: this is how the layout is meant to be read, left
+  // column then right, and RECIPE.md's What you see describes exactly this.
+  // A panel that quietly changed places would make the recipe wrong.
+  const layout = JSON.parse(read(join(ROOT, "layouts", "cockpit.json")));
+  const find = (node, id) => (node?.id === id ? node : (node?.children ?? []).reduce((a, c) => a || find(c, id), null));
+  const kinds = (column) => (column?.children ?? []).map((c) => c.content?.props?.kind).filter(Boolean);
+
+  assert.deepEqual(kinds(find(layout, "sidebar-lists")), ["pulls"]);
+  assert.deepEqual(kinds(find(layout, "right-lists")), ["routines", "issues", "team"]);
+
+  // The right column ships with panels in it, so it ships shown. dock.js hides
+  // it only once the last panel is moved out.
+  assert.notEqual(find(layout, "right-lists").hidden, true);
+});
+
 test("the shipped layout hangs the drawer off an edge, with a peek", () => {
   // The strip the drawer draws is exactly `peek` wide: any other number and
   // the count sits half off the screen. drawer.js names it EDGE.

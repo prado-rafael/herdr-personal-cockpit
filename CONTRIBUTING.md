@@ -171,8 +171,38 @@ A sandbox screenshot is the likeliest way one escapes, so the rule is checked
 where the data is: `tests/demo.test.js` and `tests/gallery.test.js` assert that
 every URL and repository in the sample data is in the `acme` world.
 
-`preview.png` is the one file in the repo that was shot before this rule
-existed. Replace it from the sandbox when the drawer lands in it.
+### Reshooting `preview.png`
+
+It is the herdr.dev gallery card and the README image, so it is the one picture
+of this mod most people ever see. Shoot it from the sandbox:
+
+```powershell
+.\tools\sandbox.ps1 start
+.\tools\sandbox.ps1 dark
+.\tools\sandbox.ps1 shot
+```
+
+The panels take care of themselves — every one of them is full of the `acme`
+world. The **work area does not**: the sandbox window shares herdr-core with
+your own, so whatever terminal is in front is yours, with your home folder in
+its prompt. The version before this one went out with a real repo, a real
+login and a real home path in it.
+
+So give it a terminal of its own somewhere neutral:
+
+```sh
+git clone --no-hardlinks . /c/Users/Public/cockpit-demo
+```
+
+```powershell
+herdr-app do tab.new --name demo --folder "C:\Users\Public\cockpit-demo"
+hc send <terminal> "git log --oneline --decorate --no-merges -7"
+.\tools\sandbox.ps1 shot
+herdr-app do tab.close --id <tab> --confirmed true     # it is in your window too
+```
+
+`herdr-app do window.maximize` first: the card wants the full 1920. Delete the
+clone afterwards.
 
 ## Tests
 

@@ -3,8 +3,9 @@
 [![CI](https://github.com/rafael-adcp/herdr-personal-cockpit/actions/workflows/ci.yml/badge.svg)](https://github.com/rafael-adcp/herdr-personal-cockpit/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/rafael-adcp/herdr-personal-cockpit/branch/main/graph/badge.svg)](https://codecov.io/gh/rafael-adcp/herdr-personal-cockpit)
 
-Panels for the [Herdr](https://herdr.dev) desktop app: what needs me, in the
-sidebar, next to the agents doing the work.
+Panels for the [Herdr](https://herdr.dev) desktop app: what needs me, on both
+sides of the terminals doing the work. Your own pull requests on the left, with
+Spaces and Agents; the queue and the people you watch on the right.
 
 ![Personal Cockpit](preview.png)
 
@@ -15,14 +16,18 @@ sidebar, next to the agents doing the work.
 | **Kraken Tasks** | The open issues of one coordination repo you choose — a [kraken](https://github.com/rafael-adcp/kraken) task queue. Grouped into Needs you / Queue, with the issues' own GitHub labels. |
 | **Routines** | Kraken tasks you keep instead of rewriting. A `▶` opens one in the queue; while its task is open the button is gone. Grouped into Needs you / In the queue / Ready / Paused. |
 
+**My pull requests** ships in the sidebar; **Routines**, **Kraken Tasks** and
+**Team's pull requests** ship in a 380px column on the right of the work area,
+in that order. Any of them moves to the other side with the dock arrow in its
+header, and the layout remembers where you put it.
+
 All four keep their last good list when a refresh fails, minimise to their own
-header bar — the minus, or a press anywhere else on the bar — move to a column
-on the right, and drop to an icon-and-count rail when the sidebar is dragged
-narrow.
+header bar — the minus, or a press anywhere else on the bar — and drop to an
+icon-and-count rail when their column is dragged narrow.
 
 ## The drawer on the edge
 
-Hanging off the right edge of the window is a 44px strip with a count: what is
+Hanging off the left edge of the window is a 44px strip with a count: what is
 waiting on you across all four panels. Hover it and it slides out. With nothing
 waiting it is not there at all — the reward for being up to date is a clean
 edge.
@@ -139,16 +144,17 @@ column:
   "content": { "mod": "personal-cockpit", "props": { "kind": "issues", "node": "kraken-issues" } } }
 ```
 
-For the move button to have somewhere to go, the row holding your tab block
-needs an empty `right-lists` column — or let the panel create one the first
-time you press it.
+Put the first block in your sidebar column and the other three in a
+`right-lists` column inside the row that holds your tab block, which is where
+the dock arrow moves a panel to. Leave that column out and the first press of
+the arrow creates it.
 
 The drawer is not in the tree. It goes in `floating`, beside the root's
 `children`, and the `peek` is what stays showing when the pointer is elsewhere:
 
 ```json
 "floating": [
-  { "id": "urgent", "edge": "right", "align": "center", "peek": 44,
+  { "id": "urgent", "edge": "left", "align": "center", "peek": 44,
     "content": { "mod": "personal-cockpit", "props": { "kind": "urgent" } } }
 ]
 ```

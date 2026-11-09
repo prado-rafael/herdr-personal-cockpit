@@ -1,14 +1,15 @@
 # Personal Cockpit
 
-Stacked panels in the Herdr sidebar, under Spaces and Agents: your open pull
-requests across every repo you can read, the open pull requests of the people
-you watch, the tasks you keep instead of rewriting, and the open issues of one
-coordination repo you pick — a kraken task queue. Each says in its header how
-many want something from you, keeps its last good list when the network blips,
-minimises to its own header bar, and can move to a matching column on the
-right. Click a row to open it in the browser.
+Panels down both sides of the Herdr window, with the terminals between them:
+in the sidebar under Spaces and Agents, your open pull requests across every
+repo you can read; in a column on the right, the tasks you keep instead of
+rewriting, the open issues of one coordination repo you pick — a kraken task
+queue — and the open pull requests of the people you watch. Each says in its
+header how many want something from you, keeps its last good list when the
+network blips, minimises to its own header bar, and moves to the other side
+with one button. Click a row to open it in the browser.
 
-Hanging off the window's right edge, a 44 px strip with a count: what is waiting
+Hanging off the window's left edge, a 44 px strip with a count: what is waiting
 on you across all four, ordered by what the move actually is. It floats over the
 work area, so it is still there when the sidebar is folded — and with nothing
 waiting it is not drawn at all.
@@ -17,25 +18,32 @@ waiting it is not drawn at all.
 
 ## What you see
 
-The shipped `cockpit` layout is Herdr's `main` with four blocks added to
-`sidebar-lists` and one in `floating`, so the sidebar column reads top to
-bottom:
+The shipped `cockpit` layout is Herdr's `main` with four panels, one on each
+side of the work area, and the drawer in `floating`. The terminals sit between
+them, which is the point of the arrangement: what is yours alone is on the
+left, what you share with other people is on the right, and the work is in the
+middle.
+
+The **sidebar** reads top to bottom:
 
 - **Brand** — 46 px, `workspace-chrome`, drags the window.
 - **Spaces** — flexible, `min` 90.
 - **Agents** — flexible, `min` 90.
 - **My pull requests** — flexible, `min` 42.
-- **Team's pull requests** — flexible, `min` 42.
-- **Routines** — flexible, `min` 42.
-- **Kraken Tasks** — flexible, `min` 42.
 - **Footer** — 69 px, `workspace-chrome` with `footer: true`.
 
-The sidebar is 268 px, `min` 44, `max` 480, background `chrome`, not resizable.
-To its right the usual work column: a 42 px tab bar, the active tab with card
-panes (radius 10, gap 8, 30 px always-on header, `lone: true`), a 28 px status
-bar. In `work-body` sit two more columns, both `hidden` until used: `panel`
-(Files and Changes, 368 px) and **`right-lists`** (380 px, `min` 300, `max`
-640) — the empty column any of the four panels moves into.
+It is 268 px, `min` 44, `max` 480, background `chrome`, not resizable. To its
+right the usual work column: a 42 px tab bar, the active tab with card panes
+(radius 10, gap 8, 30 px always-on header, `lone: true`), a 28 px status bar.
+
+In `work-body`, past the tab, two more columns:
+
+- **`panel`** (Herdr's Files and Changes, 368 px), `hidden` until used.
+- **`right-lists`** — 380 px, `min` 300, `max` 640, shown, and holding three
+  panels in this order: **Routines**, **Kraken Tasks**, **Team's pull
+  requests**. Each flexible, `min` 42. It is the same stack the sidebar is, so
+  a panel moves between the two and keeps its shape; emptied by moving all
+  three out, the column hides rather than goes, and keeps its width.
 
 Each panel is the same shape:
 
@@ -109,7 +117,7 @@ task is closed, and `#number` in `muted`. The age is when that task was opened.
 Narrower than 160 px a panel drops to a **rail**: its icon, tinted `blocked`
 when something needs you, and the count in a small pill.
 
-**The drawer**, floating on the window's right edge, vertically centred, with a
+**The drawer**, floating on the window's left edge, vertically centred, with a
 44 px peek. It is not in the layout tree. With nothing waiting it is not drawn
 at all — no strip, nothing on the edge.
 
@@ -293,8 +301,8 @@ for all four panels, and The floating drawer. Everything on it is made up.
 ## Built from
 
 ```
-layouts/cockpit.json          main + four blocks in sidebar-lists, and the
-                              drawer in `floating`
+layouts/cockpit.json          main + one panel in sidebar-lists, three in
+                              right-lists, and the drawer in `floating`
 layouts/cockpit.svg           its thumbnail in Settings, named by "preview"
 mods/personal-cockpit/
   main.js      the one exported View; picks a screen by props.kind
@@ -358,7 +366,7 @@ unknown `kind`, and no props at all, is the pull requests panel — which is wha
 The drawer's block, in the root's `floating` array rather than its `children`:
 
 ```json
-{ "id": "urgent", "edge": "right", "align": "center", "peek": 44,
+{ "id": "urgent", "edge": "left", "align": "center", "peek": 44,
   "content": { "mod": "personal-cockpit", "props": { "kind": "urgent" } } }
 ```
 
@@ -622,7 +630,7 @@ adding a connection to one of these, and do not estimate.
   a blank new-issue form.
 - Settings → Look shows a drawn thumbnail on the cockpit card, not the empty
   frame a layout without a `preview` gets.
-- **Nothing on the right edge** while all four panels are up to date: no strip,
+- **Nothing on the left edge** while all four panels are up to date: no strip,
   no count, nothing to hover.
 - With a failing pull request of yours, a review requested of you, a task
   labelled `needs-decision` and a routine missing its Acceptance, the edge shows
@@ -633,11 +641,15 @@ adding a connection to one of these, and do not estimate.
   row takes no pointer and opens nothing.
 - Folding the sidebar away leaves the drawer where it was — which is the whole
   reason it is not in the sidebar.
-- Docking every panel into the right column leaves the drawer exactly where it
-  was, overlapping that column's edge. So does opening Herdr's files and
-  changes panel. Nothing but an empty list takes it off the screen.
-- Dragging the drawer to the left edge puts the strip on the left of the body,
-  and Herdr still has it there after a restart.
+- Moving every panel into one column leaves the drawer exactly where it was,
+  overlapping whatever is under it. So does opening Herdr's files and changes
+  panel. Nothing but an empty list takes it off the screen.
+- Dragging the drawer to the right edge puts the strip on the right of the
+  body, and Herdr still has it there after a restart.
+- The sidebar holds My pull requests, and the right column Routines, Kraken
+  Tasks and Team's pull requests, in that order. The dock arrow in any of their
+  headers moves one across; moving all three out of the right column hides it
+  and keeps its width for the next one.
 - `herdr-app do personal-cockpit.kit` opens the gallery **once**, not four
   times, with every header state, the three rails, all four panels' rows wide
   and narrow, and the drawer's body on it. `escape` closes it. Switching the
