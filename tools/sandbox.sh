@@ -11,8 +11,8 @@
 # way. `sandbox.sh kit` is the screen that shows every row and header state,
 # because the gallery holds its data instead of fetching it.
 #
-#   sh tools/sandbox.sh start      build the home, install into it, write the
-#                                  demo data, and check the result
+#   sh tools/sandbox.sh start      build the home, install into it (which runs
+#                                  check), and write the demo data
 #   sh tools/sandbox.sh check      herdr-app check on the installed mod
 #   sh tools/sandbox.sh refresh    rewrite the demo data (fresh ages) and reload
 #   sh tools/sandbox.sh kit        open the chrome gallery in that window
@@ -67,13 +67,10 @@ case ${1:-start} in
     mkdir -p -- "$box/layouts" "$box/mods"
     echo "home     -> $box"
     HERDR_APP_HOME="$box" sh "$root/tools/install.sh" --no-switch
+    # No check of our own: install.sh has just run one on what it installed, and
+    # a second would print the same line again. `sandbox.sh check` is for
+    # re-running it after an edit.
     write_demo
-    if have_app; then
-      app check "$mod"
-      echo "check    -> passed"
-    else
-      echo "check    -> skipped: herdr-app is not on the PATH"
-    fi
     if ! running; then
       echo
       echo "No window on this home yet. Start Herdr against it, however you launch it:"

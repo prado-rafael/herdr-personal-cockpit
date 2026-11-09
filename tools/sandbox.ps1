@@ -10,8 +10,8 @@
 # way. `sandbox.ps1 kit` is the screen that shows every row and header state,
 # because the gallery holds its data instead of fetching it.
 #
-#   .\tools\sandbox.ps1 start        build the home, install into it, write the
-#                                    demo data, and check the result
+#   .\tools\sandbox.ps1 start        build the home, install into it (which runs
+#                                    check), and write the demo data
 #   .\tools\sandbox.ps1 check        herdr-app check on the installed mod
 #   .\tools\sandbox.ps1 refresh      rewrite the demo data (fresh ages) and reload
 #   .\tools\sandbox.ps1 kit          open the chrome gallery in that window
@@ -49,23 +49,46 @@ function Get-App {
 }
 
 # Every call carries the sandbox home, so none of them can reach the real one.
+#
+# Start-Process -Wait rather than the call operator, and this is the whole
+# reason: herdr-app is a GUI-subsystem binary, so PowerShell starts it and
+# carries straight on without waiting and without ever setting $LASTEXITCODE.
+# A failing `check` was therefore followed by the line saying it passed, and its
+# output arrived whenever it felt like it. -PassThru is the only way to read an
+# exit code here.
 function Invoke-App {
-  param([string[]]$Arguments)
+  param([string[]]$Arguments, [switch]$Quiet)
   $app = Get-App
   if (-not $app) { throw 'herdr-app not found.' }
+
+  $out = [System.IO.Path]::GetTempFileName()
+  $err = [System.IO.Path]::GetTempFileName()
   $was = $env:HERDR_APP_HOME
   $env:HERDR_APP_HOME = $box
-  try { & $app @Arguments } finally { $env:HERDR_APP_HOME = $was }
+  try {
+    $ran = Start-Process -FilePath $app -ArgumentList $Arguments -NoNewWindow -Wait -PassThru `
+      -RedirectStandardOutput $out -RedirectStandardError $err
+    $said = (Get-Content $out -Raw -ErrorAction SilentlyContinue)
+    $complained = (Get-Content $err -Raw -ErrorAction SilentlyContinue)
+    if ($ran.ExitCode -ne 0) {
+      throw "herdr-app $($Arguments -join ' ') exited $($ran.ExitCode): $(($complained, $said -join ' ').Trim())"
+    }
+    if (-not $Quiet -and $said) { Write-Host $said.TrimEnd() }
+  } finally {
+    $env:HERDR_APP_HOME = $was
+    Remove-Item $out, $err -Force -ErrorAction SilentlyContinue
+  }
 }
 
 function Test-Window {
   if (-not (Get-App)) { return $false }
   # The socket first: with no window there is nothing listening, and asking
   # herdr-app anyway prints a connection error that reads like a fault when it
-  # is the ordinary case. `$?` is no use after a pipe to Out-Null -- it reports
-  # on Out-Null, not on the program -- so the exit code is what decides.
+  # is the ordinary case.
   if (-not (Test-Path (Join-Path $box 'herdr-app.sock'))) { return $false }
-  try { Invoke-App @('status') | Out-Null; return ($LASTEXITCODE -eq 0) } catch { return $false }
+  # Invoke-App throws on a non-zero exit, so there is nothing to read a code
+  # from here: either it answered or it did not.
+  try { Invoke-App @('status') -Quiet; return $true } catch { return $false }
 }
 
 function Assert-Window {
@@ -103,13 +126,10 @@ switch ($Command) {
     $env:HERDR_APP_HOME = $box
     try { & (Join-Path $root 'tools\install.ps1') -NoSwitch } finally { $env:HERDR_APP_HOME = $was }
 
+    # No check of our own: install.ps1 has just run one on what it installed,
+    # and a second would print the same line again. `sandbox.ps1 check` is for
+    # re-running it after an edit.
     Write-Demo
-    if (Get-App) {
-      Invoke-App @('check', $mod)
-      Write-Host 'check    -> passed'
-    } else {
-      Write-Host 'check    -> skipped: herdr-app is not on the PATH'
-    }
     if (-not (Test-Window)) {
       Write-Host ''
       Write-Host 'No window on this home yet. Start Herdr against it, however you launch it:'
@@ -128,18 +148,18 @@ switch ($Command) {
     Write-Demo
     # The panels re-read the demo file on their next call, so this is only for
     # seeing it now rather than within a poll.
-    if (Test-Window) { Invoke-App @('do', 'personal-cockpit.refresh') | Out-Null }
+    if (Test-Window) { Invoke-App @('do', 'personal-cockpit.refresh') -Quiet }
   }
 
   'kit' {
     Assert-Window
-    Invoke-App @('do', 'personal-cockpit.kit') | Out-Null
+    Invoke-App @('do', 'personal-cockpit.kit') -Quiet
     Write-Host 'gallery  -> opened'
   }
 
   { $_ -in 'light', 'dark' } {
     Assert-Window
-    Invoke-App @('do', 'app.theme', '--name', $Command) | Out-Null
+    Invoke-App @('do', 'app.theme', '--name', $Command) -Quiet
     Write-Host "theme    -> $Command"
   }
 
@@ -150,9 +170,9 @@ switch ($Command) {
     # A window behind others does not repaint, and `shot` then returns its last
     # frame: bring it to the front before trusting these.
     foreach ($theme in @('light', 'dark')) {
-      Invoke-App @('do', 'app.theme', '--name', $theme) | Out-Null
+      Invoke-App @('do', 'app.theme', '--name', $theme) -Quiet
       $file = Join-Path $dir "$theme.png"
-      Invoke-App @('shot', $file) | Out-Null
+      Invoke-App @('shot', $file) -Quiet
       Write-Host "shot     -> $file"
     }
   }

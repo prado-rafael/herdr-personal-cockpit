@@ -73,6 +73,19 @@ if (-not $app) {
   if (Test-Path $guess) { $app = $guess }
 }
 if (-not $app) { Write-Host "herdr-app not found; switch the layout yourself."; return }
+$appPath = if ($app -is [string]) { $app } else { $app.Source }
 
-& $app check $dst
-if (-not $NoSwitch) { & $app do layout.switch --name cockpit | Out-Null; Write-Host "layout   -> switched to cockpit" }
+# Start-Process -Wait, not the call operator: herdr-app is a GUI-subsystem
+# binary, so PowerShell starts it and carries straight on without waiting and
+# without setting $LASTEXITCODE. That made this check decorative -- a mod that
+# failed it still got the layout switched to it, and the only sign was a line of
+# output arriving some time later. -PassThru is the only way to read its code.
+$check = Start-Process -FilePath $appPath -ArgumentList @('check', $dst) -NoNewWindow -Wait -PassThru
+if ($check.ExitCode -ne 0) {
+  throw "herdr-app check failed on $dst (exit $($check.ExitCode)). The mod is installed; the layout was not switched."
+}
+
+if (-not $NoSwitch) {
+  Start-Process -FilePath $appPath -ArgumentList @('do', 'layout.switch', '--name', 'cockpit') -NoNewWindow -Wait | Out-Null
+  Write-Host "layout   -> switched to cockpit"
+}
