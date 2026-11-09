@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, real
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { connectPi } from "../mods/personal-cockpit/jira-bridge.mjs";
 
 const SERVER = "https://mcp.atlassian.com/v1/mcp";
@@ -48,7 +49,7 @@ function fixture() {
         await transport.options.authProvider.token();
         if (globalThis.jiraMock.error) throw globalThis.jiraMock.error;
       }
-      async callTool(name, args, options) { globalThis.jiraMock.called = { name, args, options }; return { content: [] }; }
+      async callTool(name, args, options) { globalThis.jiraMock.called = { name, args, options }; return globalThis.jiraMock.result ?? { content: [] }; }
       async close() { globalThis.jiraMock.closed++; if (globalThis.jiraMock.closeError) throw Error('close'); }
     }
     export class StreamableHttpTransport { constructor(options) { this.options = options; } }
@@ -72,6 +73,60 @@ function fixture() {
   globalThis.jiraMock = { state: { tokens: { access_token: "mock-access-token" } }, closed: 0, settled: 0 };
   return { dir, pi, write, mock: globalThis.jiraMock, close() { rmSync(dir, { recursive: true, force: true }); delete globalThis.jiraMock; } };
 }
+
+test("the source CLI returns search JSON, honors JQL overrides and sanitizes failures", () => {
+  const f = fixture();
+  try {
+    const bridge = join(import.meta.dirname, "../mods/personal-cockpit/jira-bridge.mjs");
+    const config = join(f.dir, "jira.config.json");
+    const saved = JSON.stringify({ site: "https://example.atlassian.net", cloudId: "10465e5c-dd46-47ec-a645-05ad3dab7ede", jql: "project = TEST" });
+    f.write("jira.config.json", saved);
+    const state = JSON.stringify({ ...f.mock, result: { structuredContent: { issues: [{ key: "TEST-1", fields: { summary: "CLI fixture" } }], isLast: true } } });
+    f.write("cli-state.mjs", `globalThis.jiraMock = ${state};`);
+    const run = (args = [config], managed = true) => {
+      const env = { ...process.env, HOME: f.dir, USERPROFILE: f.dir, PI_CODING_AGENT_DIR: f.dir };
+      if (!managed) delete env.PI_CODING_AGENT_DIR;
+      const result = spawnSync(process.execPath, ["--import", pathToFileURL(join(f.dir, "cli-state.mjs")).href, bridge, ...args], {
+        cwd: tmpdir(), encoding: "utf8", timeout: 10000, env,
+      });
+      assert.equal(result.error, undefined);
+      assert.equal(result.stderr, "");
+      return { status: result.status, data: JSON.parse(result.stdout) };
+    };
+    const result = run();
+    assert.equal(result.status, 0);
+    assert.equal(result.data.items[0].key, "TEST-1");
+    assert.equal(result.data.items[0].title, "CLI fixture");
+    assert.equal(result.data.jql, "project = TEST");
+    assert.ok(result.data.at > 0);
+    assert.equal(run([config, "project = OTHER"]).data.jql, "project = OTHER");
+    assert.equal(readFileSync(config, "utf8"), saved);
+    const missing = run([join(f.dir, "missing-config.json")]);
+    assert.equal(missing.status, 1);
+    assert.equal(missing.data.error.kind, "setup");
+    const unmanaged = run([config], false);
+    assert.equal(unmanaged.status, 1);
+    assert.match(unmanaged.data.error.message, /existing managed Pi installation/);
+    f.write("cli-state.mjs", `globalThis.jiraMock = ${state}; globalThis.jiraMock.error = new Error("Bearer mock-secret");`);
+    const failed = run();
+    assert.equal(failed.status, 1);
+    assert.equal(failed.data.error.kind, "error");
+    assert.match(failed.data.error.message, /Could not query Jira/);
+    assert.ok(!JSON.stringify(failed.data).includes("mock-secret"));
+    // Redirect only the adjacent config read, never read a developer's personal config.
+    f.write("cli-state.mjs", `
+      import fs from "node:fs";
+      import { syncBuiltinESMExports } from "node:module";
+      const read = fs.readFileSync;
+      fs.readFileSync = (path, ...args) => read(path === ${JSON.stringify(join(import.meta.dirname, "../mods/personal-cockpit/jira.config.json"))} ? ${JSON.stringify(config)} : path, ...args);
+      syncBuiltinESMExports();
+      globalThis.jiraMock = ${state};
+    `);
+    const adjacent = run([]);
+    assert.equal(adjacent.status, 0);
+    assert.equal(adjacent.data.jql, "project = TEST");
+  } finally { f.close(); }
+});
 
 test("OAuth adapter uses the existing Pi store, same server identity and refresh locks", async () => {
   const f = fixture();
