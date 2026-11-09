@@ -11,21 +11,22 @@
 # because the gallery holds its data instead of fetching it.
 #
 #   .\tools\sandbox.ps1 start        build the home, install into it (which runs
-#                                    check), and write the demo data
+#                                    check), write the demo data, open the window
+#   .\tools\sandbox.ps1 window       open a second Herdr window on this home
 #   .\tools\sandbox.ps1 check        herdr-app check on the installed mod
 #   .\tools\sandbox.ps1 refresh      rewrite the demo data (fresh ages) and reload
 #   .\tools\sandbox.ps1 kit          open the chrome gallery in that window
-#   .\tools\sandbox.ps1 light        switch that window's theme
+#   .\tools\sandbox.ps1 light        reopen the window light or dark
 #   .\tools\sandbox.ps1 dark
-#   .\tools\sandbox.ps1 shot [dir]   a screenshot in each theme, into dir
+#   .\tools\sandbox.ps1 shot [dir]   a screenshot of it, into dir
 #   .\tools\sandbox.ps1 env          the variables to drive it yourself
-#   .\tools\sandbox.ps1 stop         delete the home
+#   .\tools\sandbox.ps1 stop         close the window and delete the home
 #
 # It never touches the real one: everything is under $env:COCKPIT_SANDBOX, and
-# every herdr-app call is prefixed with that HERDR_APP_HOME. Opening a *window*
-# on it is the one thing this cannot do for you -- `herdr-app` talks to an app
-# that is already running, and which command starts a second one depends on how
-# Herdr was installed. `start` prints what to run.
+# every herdr-app call is prefixed with that HERDR_APP_HOME. That includes the
+# window -- `herdr-app` with no arguments opens one, and the home it opens on is
+# the one in the environment -- so the sandbox window and the person's own are
+# two windows that cannot see each other's layout, mods or shared state.
 
 [CmdletBinding()]
 param(
@@ -39,6 +40,17 @@ $root = Split-Path -Parent $PSScriptRoot
 $box = if ($env:COCKPIT_SANDBOX) { $env:COCKPIT_SANDBOX } else { Join-Path $env:TEMP 'personal-cockpit-sandbox' }
 $box = $box.TrimEnd('\', '/')
 $mod = Join-Path $box 'mods\personal-cockpit'
+
+# UTF-8 with no byte-order mark.
+#
+# `Set-Content -Encoding utf8` writes one in PowerShell 5.1, and a strict JSON
+# reader takes the BOM as the first character of the document and rejects the
+# file. Herdr then falls back to its defaults without saying anything, which is
+# how a seeded `shared.json` and a written `settings.json` both did nothing at
+# all: the repo was never watched and the appearance never changed.
+function Write-Json([string]$path, [string]$text) {
+  [System.IO.File]::WriteAllText($path, $text, (New-Object System.Text.UTF8Encoding $false))
+}
 
 function Get-App {
   $found = Get-Command herdr-app -ErrorAction SilentlyContinue
@@ -114,17 +126,42 @@ function Write-Demo {
   Copy-Item (Join-Path $root 'tools\demo\team.yml') (Join-Path $mod 'team.yml') -Force
   # Which repo the Kraken Tasks panel watches. Without this it asks for one,
   # which is a state worth seeing but not the one you came for.
+  # frame.welcomed: a home that has never had a window shows the welcome over
+  # everything, which is every screenshot ruined.
   $shared = @'
 {
+  "frame.welcomed": "finished",
   "cockpit.issues.repo": "acme/tasks",
   "cockpit.issues.recent": ["acme/tasks", "acme/app"]
 }
 '@
-  Set-Content -Path (Join-Path $box 'shared.json') -Value $shared -Encoding utf8
+  Write-Json (Join-Path $box 'shared.json') $shared
   Write-Host "demo     -> $(Join-Path $box 'personal-cockpit-demo.json')"
 }
 
+# A second Herdr window, on this home. `herdr-app` with no arguments opens one,
+# and HERDR_APP_HOME decides which home it opens on -- so this window and the
+# person's own share nothing but herdr-core, whose terminals belong to them.
+function Open-Window {
+  $app = Get-App
+  if (-not $app) { throw 'herdr-app not found.' }
+  if (Test-Window) { Write-Host 'window   -> already open'; return }
+
+  $was = $env:HERDR_APP_HOME
+  $env:HERDR_APP_HOME = $box
+  try { Start-Process -FilePath $app | Out-Null } finally { $env:HERDR_APP_HOME = $was }
+
+  # It has to be listening before `shot` or `do` mean anything.
+  foreach ($try in 1..40) {
+    Start-Sleep -Milliseconds 250
+    if (Test-Window) { Write-Host 'window   -> open'; return }
+  }
+  throw "gave up waiting for $(Join-Path $box 'herdr-app.sock')"
+}
+
 switch ($Command) {
+  'window' { Open-Window }
+
   'start' {
     New-Item -ItemType Directory -Force (Join-Path $box 'layouts') | Out-Null
     New-Item -ItemType Directory -Force (Join-Path $box 'mods') | Out-Null
@@ -138,12 +175,11 @@ switch ($Command) {
     # and a second would print the same line again. `sandbox.ps1 check` is for
     # re-running it after an edit.
     Write-Demo
-    if (-not (Test-Window)) {
-      Write-Host ''
-      Write-Host 'No window on this home yet. Start Herdr against it, however you launch it:'
-      Write-Host "  `$env:HERDR_APP_HOME = '$box'; <your herdr app command>"
-      Write-Host 'then: .\tools\sandbox.ps1 kit | shot | light | dark'
-    }
+    Open-Window
+    # Switched after the window is up: the layout is chosen per home, and a home
+    # that has never had a window open has nowhere for the choice to land.
+    Invoke-App @('do', 'layout.switch', '--name', 'cockpit') -Quiet
+    Write-Host 'layout   -> cockpit'
   }
 
   'check' {
@@ -166,23 +202,29 @@ switch ($Command) {
   }
 
   { $_ -in 'light', 'dark' } {
-    Assert-Window
-    Invoke-App @('do', 'app.theme', '--name', $Command) -Quiet
-    Write-Host "theme    -> $Command"
+    # Light and dark are `appearance` in settings.json, not a theme: there is
+    # no command for it (`app.theme` takes a theme file), so the file is written
+    # and the window reopened on it.
+    Write-Json (Join-Path $box 'settings.json') "{ `"appearance`": `"$Command`" }"
+    if (Test-Window) {
+      try { Invoke-App @('do', 'window.close') -Quiet } catch {}
+      Start-Sleep -Milliseconds 1200
+    }
+    Open-Window
+    Invoke-App @('do', 'layout.switch', '--name', 'cockpit') -Quiet
+    Write-Host "appearance -> $Command"
   }
 
   'shot' {
     Assert-Window
     $dir = if ($Out) { $Out } else { Join-Path $box 'shots' }
     New-Item -ItemType Directory -Force $dir | Out-Null
+    $file = Join-Path $dir 'shot.png'
     # A window behind others does not repaint, and `shot` then returns its last
-    # frame: bring it to the front before trusting these.
-    foreach ($theme in @('light', 'dark')) {
-      Invoke-App @('do', 'app.theme', '--name', $theme) -Quiet
-      $file = Join-Path $dir "$theme.png"
-      Invoke-App @('shot', $file) -Quiet
-      Write-Host "shot     -> $file"
-    }
+    # frame: bring it to the front before trusting this. `sandbox light|dark`
+    # reopens the window, which brings it forward on the way.
+    Invoke-App @('shot', $file) -Quiet
+    Write-Host "shot     -> $file"
   }
 
   'env' {
@@ -191,6 +233,11 @@ switch ($Command) {
   }
 
   'stop' {
+    # The window first: it would otherwise be left pointing at a home that is
+    # no longer there.
+    if (Test-Window) {
+      try { Invoke-App @('do', 'window.close') -Quiet; Write-Host 'window   -> closed'; Start-Sleep -Milliseconds 800 } catch {}
+    }
     # Only ever the sandbox: $box comes from COCKPIT_SANDBOX or TEMP, and a real
     # Herdr home is never either.
     if ($box -notmatch 'personal-cockpit-sandbox') {

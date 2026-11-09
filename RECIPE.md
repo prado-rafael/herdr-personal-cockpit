@@ -117,7 +117,10 @@ at all — no strip, nothing on the edge.
   icon in `blocked` over the total in the same small pill the rail uses. The
   same icon-over-badge as a folded panel, on purpose — both are the same
   promise.
-- The **body** is 320 px, background `chrome`, a 1 px `border`, radius 8,
+- The **body** is drawn only while the pointer is on the drawer. Closed, its
+  320 px of width are still held — the block keeps the size Herdr slides out —
+  but there is nothing in it, so the strip is all there is to see.
+- Open, the body is 320 px, background `chrome`, a 1 px `border`, radius 8,
   8 px of bottom padding. Its first line matches a panel header's left half:
   `Needs you` in 11.5 px `dim` with the total in the `blocked` pill, 16 px side
   padding, 12 px above.
@@ -505,10 +508,15 @@ adding a connection to one of these, and do not estimate.
 - **Never publish from a render.** Writing shared state re-renders every mod,
   so a write during a render is a render asking for another one, forever. It
   goes in the path that loaded.
-- **The drawer's `peek` and `drawer.js`'s `EDGE` are the same number by hand.**
-  Nothing in the app ties them together: `peek` decides how much Herdr leaves
-  showing and `EDGE` is how wide the strip is drawn, so a mismatch puts the
-  count half off the screen. `tests/structure.test.js` compares them.
+- **`peek` is not measured in exactly the pixels the strip is drawn at.** On a
+  1280-wide window a `peek` of 44 left about 75 showing, and what filled the
+  difference was the right-hand edge of the body: a column of ages beside the
+  count, belonging to rows that were not on screen. Hence the body is drawn
+  only while `placement().hovered` — whatever extra shows is then blank. Don't
+  go back to drawing it always and trusting the two numbers to agree.
+  `EDGE` and the layout's `peek` are still the same number by hand, and
+  `tests/structure.test.js` compares them, because the strip should fill the
+  peek rather than rattle around in it.
 - **The drawer draws its own background.** A floating block sits over whatever
   is behind it, which on this layout is a terminal, and these rows would be
   unreadable on one. If a future Herdr draws a surface under a floating block,

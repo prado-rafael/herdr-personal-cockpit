@@ -42,7 +42,10 @@ function assertDrawsNothing(el) {
 beforeEach(() => {
   reset();
   host.layout = tree({ sidebar: [panelBlock("pulls")] });
-  host.placement = placedAt("right");
+  // Hovered by default, because most of what is worth asserting is in the body
+  // and the body is only drawn while the pointer is on it. The closed state has
+  // its own tests below.
+  host.placement = placedAt("right", { hovered: true });
   localStorage.clear();
 });
 
@@ -136,11 +139,47 @@ test("a row leads to its page, and one with no page is not pressable", () => {
   assert.deepEqual(context.opened, ["https://github.com/acme/app/pull/7"]);
 });
 
+// ---- closed, and open ----------------------------------------------------
+
+test("closed, not one row is drawn", () => {
+  // `peek` is not measured in exactly the pixels the strip is drawn at -- on a
+  // 1280-wide window it left about 75 showing against a 44 px strip -- and what
+  // came through the difference was the right-hand edge of the body: a column
+  // of ages beside the count, with no rows to belong to.
+  publish("pulls", [urgentRow()]);
+  host.placement = placedAt("right", { hovered: false });
+
+  const text = textOf(drawer().render());
+  assert.equal(text.includes("Tidy the header"), false, "a row was drawn while closed");
+  assert.equal(text.includes("Fix"), false, "a heading was drawn while closed");
+  assert.equal(text.includes("Needs you"), false);
+  // The count is the whole of what the peek is for.
+  assert.deepEqual(text, ["1"]);
+});
+
+test("closed, the body's width is still held", () => {
+  // So the block keeps the size Herdr slides out. Only its contents wait for
+  // the pointer; an element that shrank to the strip would have nothing to
+  // slide.
+  publish("pulls", [urgentRow()]);
+  host.placement = placedAt("right", { hovered: false });
+
+  const widths = callsOf(drawer().render(), "w").map(([px]) => px);
+  assert.ok(widths.includes(320), `expected the 320px body, got ${widths.join(", ")}`);
+  assert.ok(widths.includes(44), `expected the 44px strip, got ${widths.join(", ")}`);
+});
+
+test("the pointer arriving is what fills it in", () => {
+  publish("pulls", [urgentRow()]);
+  host.placement = placedAt("right", { hovered: true });
+  assert.ok(textOf(drawer().render()).includes("Tidy the header"));
+});
+
 // ---- the edge it hangs from ----------------------------------------------
 
 test("on the right edge the body opens inward and the strip stays on the edge", () => {
   publish("pulls", [urgentRow()]);
-  host.placement = placedAt("right");
+  host.placement = placedAt("right", { hovered: true });
   assert.deepEqual(ids(drawer().render()).slice(0, 2), ["cockpit-urgent", "cockpit-urgent-body"]);
 });
 
@@ -148,7 +187,7 @@ test("dragged to the left edge, the strip and the body swap", () => {
   // Herdr lets the drawer be dragged to either side and remembers it, so both
   // ways have to be drawn -- the peek is whichever side is against the edge.
   publish("pulls", [urgentRow()]);
-  host.placement = placedAt("left");
+  host.placement = placedAt("left", { hovered: true });
   assert.deepEqual(ids(drawer().render()).slice(0, 2), ["cockpit-urgent", "cockpit-urgent-peek"]);
 });
 

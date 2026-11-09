@@ -12,21 +12,22 @@
 # because the gallery holds its data instead of fetching it.
 #
 #   sh tools/sandbox.sh start      build the home, install into it (which runs
-#                                  check), and write the demo data
+#                                  check), write the demo data, open the window
+#   sh tools/sandbox.sh window     open a second Herdr window on this home
 #   sh tools/sandbox.sh check      herdr-app check on the installed mod
 #   sh tools/sandbox.sh refresh    rewrite the demo data (fresh ages) and reload
 #   sh tools/sandbox.sh kit        open the chrome gallery in that window
-#   sh tools/sandbox.sh light      switch that window's theme
+#   sh tools/sandbox.sh light      reopen the window light or dark
 #   sh tools/sandbox.sh dark
-#   sh tools/sandbox.sh shot [dir] a screenshot in each theme, into dir
+#   sh tools/sandbox.sh shot [dir] a screenshot of it, into dir
 #   sh tools/sandbox.sh env        the variables to drive it yourself
-#   sh tools/sandbox.sh stop       delete the home
+#   sh tools/sandbox.sh stop       close the window and delete the home
 #
 # It never touches the real one: everything is under $COCKPIT_SANDBOX, and every
-# herdr-app call is prefixed with that HERDR_APP_HOME. Opening a *window* on it
-# is the one thing this cannot do for you -- `herdr-app` talks to an app that is
-# already running, and which command starts a second one depends on how Herdr
-# was installed. `start` prints what to run.
+# herdr-app call is prefixed with that HERDR_APP_HOME. That includes the window
+# -- `herdr-app` with no arguments opens one, and the home it opens on is the
+# one in the environment -- so the sandbox window and the person's own are two
+# windows that cannot see each other's layout, mods or shared state.
 
 set -eu
 
@@ -53,13 +54,34 @@ write_demo() {
   cp -- "$root/tools/demo/team.yml" "$mod/team.yml"
   # Which repo the Kraken Tasks panel watches. Without this it asks for one,
   # which is a state worth seeing but not the one you came for.
+  # frame.welcomed: a home that has never had a window shows the welcome over
+  # everything, which is every screenshot ruined.
   cat >"$box/shared.json" <<'JSON'
 {
+  "frame.welcomed": "finished",
   "cockpit.issues.repo": "acme/tasks",
   "cockpit.issues.recent": ["acme/tasks", "acme/app"]
 }
 JSON
   echo "demo     -> $box/personal-cockpit-demo.json"
+}
+
+# A second Herdr window, on this home. `herdr-app` with no arguments opens one,
+# and HERDR_APP_HOME decides which home it opens on -- so this window and the
+# person's own share nothing but herdr-core, whose terminals belong to them.
+open_window() {
+  have_app || { echo "herdr-app is not on the PATH." >&2; return 1; }
+  running && { echo "window   -> already open"; return 0; }
+  HERDR_APP_HOME="$box" herdr-app >/dev/null 2>&1 &
+  # It has to be listening before `shot` or `do` mean anything.
+  n=0
+  while [ "$n" -lt 40 ]; do
+    running && { echo "window   -> open"; return 0; }
+    n=$((n + 1))
+    sleep 0.25
+  done
+  echo "window   -> gave up waiting for $box/herdr-app.sock" >&2
+  return 1
 }
 
 case ${1:-start} in
@@ -71,12 +93,14 @@ case ${1:-start} in
     # a second would print the same line again. `sandbox.sh check` is for
     # re-running it after an edit.
     write_demo
-    if ! running; then
-      echo
-      echo "No window on this home yet. Start Herdr against it, however you launch it:"
-      echo "  HERDR_APP_HOME=$box <your herdr app command>"
-      echo "then: sh tools/sandbox.sh kit | shot | light | dark"
-    fi
+    open_window
+    # Switched after the window is up: the layout is chosen per home, and a home
+    # that has never had a window open has nowhere for the choice to land.
+    running && app do layout.switch --name cockpit >/dev/null && echo "layout   -> cockpit"
+    ;;
+
+  window)
+    open_window
     ;;
 
   check)
@@ -100,9 +124,14 @@ case ${1:-start} in
     ;;
 
   light|dark)
-    running || { echo "No window on this home. See: sh tools/sandbox.sh env" >&2; exit 1; }
-    app do app.theme --name "$1" >/dev/null
-    echo "theme    -> $1"
+    # Light and dark are `appearance` in settings.json, not a theme: there is no
+    # command for it (`app.theme` takes a theme file), so the file is written and
+    # the window reopened on it.
+    printf '{ "appearance": "%s" }\n' "$1" >"$box/settings.json"
+    running && app do window.close >/dev/null 2>&1 && sleep 1.2
+    open_window
+    app do layout.switch --name cockpit >/dev/null
+    echo "appearance -> $1"
     ;;
 
   shot)
@@ -110,12 +139,10 @@ case ${1:-start} in
     out=${2:-$box/shots}
     mkdir -p -- "$out"
     # A window behind others does not repaint, and `shot` then returns its last
-    # frame: bring it to the front before trusting these.
-    for theme in light dark; do
-      app do app.theme --name "$theme" >/dev/null
-      app shot "$out/$theme.png" >/dev/null
-      echo "shot     -> $out/$theme.png"
-    done
+    # frame: bring it to the front before trusting this. `sandbox.sh light|dark`
+    # reopens the window, which brings it forward on the way.
+    app shot "$out/shot.png" >/dev/null
+    echo "shot     -> $out/shot.png"
     ;;
 
   env)
@@ -124,6 +151,9 @@ case ${1:-start} in
     ;;
 
   stop)
+    # The window first: it would otherwise be left pointing at a home that is
+    # no longer there.
+    running && app do window.close >/dev/null 2>&1 && echo "window   -> closed"
     # Only ever the sandbox: $box is built from COCKPIT_SANDBOX or TMPDIR, and
     # a real Herdr home is never either.
     case $box in

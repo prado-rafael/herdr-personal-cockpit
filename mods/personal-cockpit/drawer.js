@@ -166,14 +166,25 @@ export class Drawer {
     // what RECIPE.md's "Watch out" is for.
     if (!rows.length) return div().size(0);
 
-    const body = this.body(t, rows);
-
     // Not floating: a layout put this screen in an ordinary block, where there
     // is no edge to hang from and a peek strip would lead nowhere.
-    if (!place) return body.size_full();
+    if (!place) return this.body(t, rows).size_full();
     // On the top or bottom edge Herdr shows the whole block -- `peek` is for
     // the sides only -- so there is nothing for a strip to stand in front of.
-    if (!place.vertical) return body;
+    if (!place.vertical) return this.body(t, rows);
+
+    // Closed, the rows are not drawn at all.
+    //
+    // `peek` is not measured in exactly the pixels the strip is drawn at: on a
+    // 1280-wide window it left about 75 showing against a 44 px strip, and what
+    // filled the difference was the right-hand edge of the body -- a lone
+    // column of ages leaking out beside the count. Drawing nothing there means
+    // whatever extra shows is blank.
+    //
+    // The width is still held, so the block keeps the size Herdr slides out;
+    // only its contents wait for the pointer. `hovered` is what that pointer is
+    // reported as, and a peek drawer being open is what it means.
+    const body = place.hovered ? this.body(t, rows) : div().w(WIDTH).flex_none();
 
     // The peek is whichever side is against the edge: the strip goes there and
     // the body opens inward. Both ways are drawn because both can happen --
