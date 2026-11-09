@@ -1,0 +1,15 @@
+# The sandbox's watch list. Copied into the throwaway Herdr home by
+# tools/sandbox.sh, never into a real one.
+#
+# The query is never sent anywhere: in demo mode github.js answers it from
+# tools/demo.mjs. It is here because the panel refuses to load without one, and
+# because the header's note shows what it is watching.
+#
+# `people` fixes the group order, which is what makes a screenshot of this
+# panel the same picture twice.
+
+query: org:acme draft:false -author:you
+
+people:
+  - robin
+  - sam

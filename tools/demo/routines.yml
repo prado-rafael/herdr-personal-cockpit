@@ -1,0 +1,63 @@
+# The sandbox's routines. Copied into the throwaway Herdr home by
+# tools/sandbox.sh, never into a real one.
+#
+# The titles here are a contract with tools/demo.mjs: two of them appear as
+# markers in the made-up task queue, which is what gives the panel one routine
+# already in the queue and one that has run before. Changing a title here
+# without changing it there leaves both routines looking as if they had never
+# run.
+#
+# The last routine is broken on purpose: it is the only way to see the invalid
+# row, the panel's footnote about a problem in this file, and the drawer's
+# "Configure" verb.
+
+coordination_repo: acme/tasks
+
+routines:
+  # Its task is open and parked on `awaiting-merge`: "Needs you" in the panel,
+  # and "Decide" in the drawer.
+  - title: Weekly dependency sweep
+    project: upkeep
+    priority: high
+
+    goal: |
+      Every direct dependency is at its current minor version, or has a note
+      in docs/deps.md saying why it is pinned where it is.
+
+    acceptance: |
+      `make deps` reports nothing to do. Paste its last line into the
+      delivery comment.
+
+    notes: |
+      Leave the lockfile's own formatting alone -- it is generated, and a
+      reformatted one makes the next diff unreadable.
+
+  # Its last task is closed, so the panel shows it as ready with a ▶.
+  - title: Rotate the preview tokens
+    project: upkeep
+
+    goal: |
+      No preview environment is holding a token older than ninety days.
+
+    acceptance: |
+      `make tokens-report` lists no token past ninety days.
+
+  # Listed with no button: one that is parked.
+  - title: Audit dependency licences
+    project: upkeep
+    enabled: false
+
+    goal: |
+      Every direct dependency's licence is recorded in docs/licences.md with
+      the version it was checked at.
+
+    acceptance: |
+      docs/licences.md names every entry in the manifest.
+
+  # Deliberately invalid: no acceptance. The row says so, the footnote counts
+  # it, and the drawer asks you to fix the file.
+  - title: Check the changelog
+    project: upkeep
+
+    goal: |
+      Every merged pull request since the last tag is named in the changelog.

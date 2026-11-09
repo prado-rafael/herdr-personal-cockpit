@@ -57,51 +57,6 @@
                 "weight": 1
               },
               "min": 42
-            },
-            {
-              "id": "team",
-              "type": "block",
-              "content": {
-                "mod": "personal-cockpit",
-                "props": {
-                  "kind": "team",
-                  "node": "team"
-                }
-              },
-              "size": {
-                "weight": 1
-              },
-              "min": 42
-            },
-            {
-              "id": "routines",
-              "type": "block",
-              "content": {
-                "mod": "personal-cockpit",
-                "props": {
-                  "kind": "routines",
-                  "node": "routines"
-                }
-              },
-              "size": {
-                "weight": 1
-              },
-              "min": 42
-            },
-            {
-              "id": "kraken-issues",
-              "type": "block",
-              "content": {
-                "mod": "personal-cockpit",
-                "props": {
-                  "kind": "issues",
-                  "node": "kraken-issues"
-                }
-              },
-              "size": {
-                "weight": 1
-              },
-              "min": 42
             }
           ]
         },
@@ -211,13 +166,58 @@
             {
               "id": "right-lists",
               "type": "column",
-              "children": [],
+              "children": [
+                {
+                  "id": "routines",
+                  "type": "block",
+                  "content": {
+                    "mod": "personal-cockpit",
+                    "props": {
+                      "kind": "routines",
+                      "node": "routines"
+                    }
+                  },
+                  "size": {
+                    "weight": 1
+                  },
+                  "min": 42
+                },
+                {
+                  "id": "kraken-issues",
+                  "type": "block",
+                  "content": {
+                    "mod": "personal-cockpit",
+                    "props": {
+                      "kind": "issues",
+                      "node": "kraken-issues"
+                    }
+                  },
+                  "size": {
+                    "weight": 1
+                  },
+                  "min": 42
+                },
+                {
+                  "id": "team",
+                  "type": "block",
+                  "content": {
+                    "mod": "personal-cockpit",
+                    "props": {
+                      "kind": "team",
+                      "node": "team"
+                    }
+                  },
+                  "size": {
+                    "weight": 1
+                  },
+                  "min": 42
+                }
+              ],
               "size": {
                 "px": 380
               },
               "min": 300,
-              "max": 640,
-              "hidden": true
+              "max": 640
             }
           ],
           "padding": 8,
@@ -235,6 +235,20 @@
         }
       ],
       "resizable": false
+    }
+  ],
+  "floating": [
+    {
+      "id": "urgent",
+      "content": {
+        "mod": "personal-cockpit",
+        "props": {
+          "kind": "urgent"
+        }
+      },
+      "edge": "left",
+      "align": "center",
+      "peek": 44
     }
   ],
   "background": "canvas",

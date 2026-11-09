@@ -15,7 +15,10 @@ param([switch]$NoSwitch, [switch]$NoLayout)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$herdr = Join-Path $env:USERPROFILE '.config\herdr-app'
+# HERDR_APP_HOME first, exactly as install.sh reads it and as the app itself
+# does: it is how the sandbox installs into a throwaway home, and how either
+# installer gets tested without touching the one being used.
+$herdr = if ($env:HERDR_APP_HOME) { $env:HERDR_APP_HOME } else { Join-Path $env:USERPROFILE '.config\herdr-app' }
 $name = 'personal-cockpit'
 
 if (-not (Test-Path $herdr)) { throw "No Herdr home at $herdr -- start the app once first." }
@@ -70,6 +73,28 @@ if (-not $app) {
   if (Test-Path $guess) { $app = $guess }
 }
 if (-not $app) { Write-Host "herdr-app not found; switch the layout yourself."; return }
+$appPath = if ($app -is [string]) { $app } else { $app.Source }
 
-& $app check $dst
-if (-not $NoSwitch) { & $app do layout.switch --name cockpit | Out-Null; Write-Host "layout   -> switched to cockpit" }
+# Start-Process -Wait, not the call operator: herdr-app is a GUI-subsystem
+# binary, so PowerShell starts it and carries straight on without waiting and
+# without setting $LASTEXITCODE. That made this check decorative -- a mod that
+# failed it still got the layout switched to it, and the only sign was a line of
+# output arriving some time later. -PassThru is the only way to read its code.
+#
+# The arguments are quoted by hand because -ArgumentList does not quote one
+# holding a space, and a Herdr home under "C:\Users\First Last\" is exactly
+# that: the path reached herdr-app split in two, and it refused the second half.
+function Quoted([string[]]$parts) {
+  ($parts | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' '
+}
+
+$check = Start-Process -FilePath $appPath -ArgumentList (Quoted @('check', $dst)) -NoNewWindow -Wait -PassThru
+if ($check.ExitCode -ne 0) {
+  throw "herdr-app check failed on $dst (exit $($check.ExitCode)). The mod is installed; the layout was not switched."
+}
+Write-Host "check    -> passed"
+
+if (-not $NoSwitch) {
+  Start-Process -FilePath $appPath -ArgumentList (Quoted @('do', 'layout.switch', '--name', 'cockpit')) -NoNewWindow -Wait | Out-Null
+  Write-Host "layout   -> switched to cockpit"
+}

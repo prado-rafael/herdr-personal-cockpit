@@ -295,6 +295,10 @@ export const configureTip = `Open ${FILE}`;
 const needsYou = (item) =>
   item.state === "invalid" || (item.open?.labels ?? []).some((name) => ATTENTION.includes(name));
 
+/** Which label parked this routine's open task on a human, in ATTENTION's
+ *  order. `slim` keeps labels as bare names, so there is nothing to unwrap. */
+const parkedBy = (task) => (task?.labels ?? []).find((name) => ATTENTION.includes(name)) ?? "needs you";
+
 export function sections(items) {
   return [
     { label: "Needs you", items: items.filter(needsYou) },
@@ -304,7 +308,32 @@ export function sections(items) {
   ].filter((s) => s.items.length);
 }
 
-export const attention = (items) => items.filter(needsYou).length;
+/** The rows that want something from you, and which of two different things
+ *  they want. A routine whose task is parked on a decision is the same move as
+ *  a Kraken task parked on one -- go and decide it. A routine that does not
+ *  parse is a different move entirely: nothing is waiting on an answer, the
+ *  file is wrong and nobody can run it until it isn't.
+ *
+ *  A bad routine has no task and so no page to open. The row says what is
+ *  wrong and does not pretend to be a link -- the gear beside the panel's own
+ *  header is what opens the file. */
+export function urgent(items) {
+  return items.filter(needsYou).map((item) => {
+    const broken = item.state === "invalid";
+    return {
+      key: `routines:${item.key}`,
+      verb: broken ? "config" : "decide",
+      title: item.title,
+      // `def` is null only for the stand-in row a missing file produces, where
+      // `error` is the path it would be written to rather than a complaint.
+      reason: broken ? (item.def ? (item.error ?? "invalid") : "not written yet") : parkedBy(item.open),
+      url: item.url,
+      at: Date.parse(item.open?.created_at ?? "") || 0,
+    };
+  });
+}
+
+export const attention = (items) => urgent(items).length;
 
 export const stampNote = (meta) => meta?.repo ?? null;
 

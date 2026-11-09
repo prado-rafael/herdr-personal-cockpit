@@ -152,6 +152,7 @@ const ALLOWED = {
   "dock.js": { deny: ["gpui-kit", "gpui-base"], why: "dock.js decides; it must not draw" },
   "checks.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "checks.js is vocabulary" },
   "yaml.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "yaml.js is a parser" },
+  "urgent.js": { deny: ["herdr", "gpui-kit", "gpui-base"], why: "urgent.js is an order, not a screen" },
 };
 
 test("the files that must not reach the app or the toolkit do not", () => {
@@ -165,10 +166,11 @@ test("the files that must not reach the app or the toolkit do not", () => {
   }
 });
 
-test("checks.js and yaml.js import nothing at all", () => {
+test("checks.js, yaml.js and urgent.js import nothing at all", () => {
   // Their empty import list is the point: it is what makes them callable from
-  // a test with no setup, and what stops either becoming a place to put things.
-  for (const name of ["checks.js", "yaml.js"]) {
+  // a test with no setup, and what stops any of them becoming a place to put
+  // things.
+  for (const name of ["checks.js", "yaml.js", "urgent.js"]) {
     const imports = [...read(join(MOD, name)).matchAll(/\bfrom\s+["']([^"']+)["']/g)];
     assert.deepEqual(imports.map(([, s]) => s), [], `${name} has grown an import`);
   }
@@ -219,12 +221,17 @@ test("the shipped layout parses and its preview is beside it", () => {
 
 test("every block running this mod asks for a kind the mod knows", () => {
   const layout = JSON.parse(read(join(ROOT, "layouts", "cockpit.json")));
-  const known = new Set(["pulls", "issues", "routines", "team", "repo-picker"]);
+  const known = new Set(["pulls", "issues", "routines", "team", "repo-picker", "urgent", "kit"]);
   const blocks = [];
 
+  // `floating` as well as `children`: a floating block sits over the tree
+  // rather than in it, so a walk of the children alone would have skipped the
+  // drawer -- and a typo in its `kind` draws the pull requests panel on the
+  // window's edge, silently, since an unknown kind falls back to the list.
   const walk = (node) => {
     if (node?.content?.mod === MOD_NAME) blocks.push(node);
     for (const child of node?.children ?? []) walk(child);
+    for (const child of node?.floating ?? []) walk(child);
   };
   walk(layout);
   walk(layout.layout ?? null);
@@ -234,6 +241,70 @@ test("every block running this mod asks for a kind the mod knows", () => {
     const kind = block.content.props?.kind;
     assert.ok(known.has(kind), `block ${block.id} asks for kind "${kind}"`);
   }
+});
+
+// ---- the recipe describes these files -------------------------------------
+
+test("the recipe's module count is the number of modules there are", () => {
+  // It has been wrong twice: "eleven modules" over a list of twelve, and then
+  // fourteen files described as twelve after kit.js was split. A build from the
+  // recipe is a build of whatever it says, so the count is load-bearing prose.
+  const WORDS = {
+    ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+    sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  };
+  const recipe = read(join(ROOT, "RECIPE.md"));
+  const [, word] = recipe.match(/One mod, ([a-z]+) modules/) ?? [];
+  assert.ok(word, "RECIPE.md no longer says how many modules this is");
+  assert.ok(word in WORDS, `"${word}" is not a number this test knows`);
+
+  const modules = readdirSync(MOD).filter((name) => name.endsWith(".js") && !name.endsWith(".d.ts"));
+  assert.equal(WORDS[word], modules.length, `the recipe says ${word}, the folder has ${modules.length}`);
+});
+
+test("every module the recipe lists is a file, and every file is listed", () => {
+  // The other half: a count can be right while the list under it names a file
+  // that was renamed, or misses one that was added.
+  const recipe = read(join(ROOT, "RECIPE.md"));
+  const listed = new Set([...recipe.matchAll(/^ {2}([a-z-]+\.js)\b/gm)].map(([, name]) => name));
+  const onDisk = readdirSync(MOD).filter((name) => name.endsWith(".js") && !name.endsWith(".d.ts"));
+
+  for (const name of onDisk) {
+    assert.ok(listed.has(name), `RECIPE.md's Built from does not mention ${name}`);
+  }
+  for (const name of listed) {
+    assert.ok(existsSync(join(MOD, name)), `RECIPE.md's Built from names ${name}, which is not there`);
+  }
+});
+
+test("the shipped layout puts the panels where, and in the order, it says", () => {
+  // Not a style preference: this is how the layout is meant to be read, left
+  // column then right, and RECIPE.md's What you see describes exactly this.
+  // A panel that quietly changed places would make the recipe wrong.
+  const layout = JSON.parse(read(join(ROOT, "layouts", "cockpit.json")));
+  const find = (node, id) => (node?.id === id ? node : (node?.children ?? []).reduce((a, c) => a || find(c, id), null));
+  const kinds = (column) => (column?.children ?? []).map((c) => c.content?.props?.kind).filter(Boolean);
+
+  assert.deepEqual(kinds(find(layout, "sidebar-lists")), ["pulls"]);
+  assert.deepEqual(kinds(find(layout, "right-lists")), ["routines", "issues", "team"]);
+
+  // The right column ships with panels in it, so it ships shown. dock.js hides
+  // it only once the last panel is moved out.
+  assert.notEqual(find(layout, "right-lists").hidden, true);
+});
+
+test("the shipped layout hangs the drawer off an edge, with a peek", () => {
+  // The strip the drawer draws is exactly `peek` wide: any other number and
+  // the count sits half off the screen. drawer.js names it EDGE.
+  const layout = JSON.parse(read(join(ROOT, "layouts", "cockpit.json")));
+  const floating = layout.floating ?? [];
+  const drawer = floating.find((block) => block.content?.props?.kind === "urgent");
+  assert.ok(drawer, "the drawer must be a floating block, not one in the tree");
+  assert.ok(["left", "right"].includes(drawer.edge), `edge: ${drawer.edge} -- peek is for the sides only`);
+  assert.equal(typeof drawer.peek, "number");
+
+  const edge = Number(read(join(MOD, "drawer.js")).match(/^const EDGE = (\d+);$/m)?.[1]);
+  assert.equal(drawer.peek, edge, "layouts/cockpit.json's peek and drawer.js's EDGE have drifted");
 });
 
 // ---- the promises the installers make -------------------------------------
