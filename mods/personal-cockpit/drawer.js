@@ -103,7 +103,35 @@ export class Drawer {
     const shown = rows.slice(0, SHOWN);
     const hidden = rows.length - shown.length;
 
-    const el = v_flex()
+    // Collected and handed over in one `children`, the way list.js builds its
+    // body. `child` in a loop works too -- picker.js does it, so the builder
+    // mutates rather than returning a copy -- but a list of children reads as
+    // the list it is, and the groups below are built the same way.
+    const body = [
+      // The same sizes and colours as a panel header's left half, so the drawer
+      // reads as one of them rather than as something else.
+      h_flex()
+        .px(16)
+        .pt(12)
+        .pb(2)
+        .gap(6)
+        .items_center()
+        .child(div().flex_1().min_w(0).truncate().text_size(11.5).font_medium().text_color(t.dim).child("Needs you"))
+        .child(badge(t, rows.length)),
+    ];
+
+    for (const group of groups(shown)) {
+      body.push(sectionHead(t, group.label, group.rows.length));
+      body.push(v_flex().px(6).gap(1).children(group.rows.map((r) => this.line(t, r))));
+    }
+
+    // Plain text, not a control: there is nowhere for it to lead that is not
+    // the panel the row came from, and those are a key away.
+    if (hidden > 0) {
+      body.push(div().px(16).pt(6).text_size(10).text_color(t.dim).child(`+${hidden} more`));
+    }
+
+    return v_flex()
       .id("cockpit-urgent-body")
       .w(WIDTH)
       .flex_none()
@@ -116,30 +144,7 @@ export class Drawer {
       .rounded(8)
       .text_size(13)
       .track_focus(this.handle)
-      .child(
-        // The same sizes and colours as a panel header's left half, so the
-        // drawer reads as one of them rather than as something else.
-        h_flex()
-          .px(16)
-          .pt(12)
-          .pb(2)
-          .gap(6)
-          .items_center()
-          .child(div().flex_1().min_w(0).truncate().text_size(11.5).font_medium().text_color(t.dim).child("Needs you"))
-          .child(badge(t, rows.length)),
-      );
-
-    for (const group of groups(shown)) {
-      el.child(sectionHead(t, group.label, group.rows.length));
-      el.child(v_flex().px(6).gap(1).children(group.rows.map((r) => this.line(t, r))));
-    }
-
-    // Plain text, not a control: there is nowhere for it to lead that is not
-    // the panel the row came from, and those are a key away.
-    if (hidden > 0) {
-      el.child(div().px(16).pt(6).text_size(10).text_color(t.dim).child(`+${hidden} more`));
-    }
-    return el;
+      .children(body);
   }
 
   render() {
