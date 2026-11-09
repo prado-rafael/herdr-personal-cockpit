@@ -80,12 +80,21 @@ $appPath = if ($app -is [string]) { $app } else { $app.Source }
 # without setting $LASTEXITCODE. That made this check decorative -- a mod that
 # failed it still got the layout switched to it, and the only sign was a line of
 # output arriving some time later. -PassThru is the only way to read its code.
-$check = Start-Process -FilePath $appPath -ArgumentList @('check', $dst) -NoNewWindow -Wait -PassThru
+#
+# The arguments are quoted by hand because -ArgumentList does not quote one
+# holding a space, and a Herdr home under "C:\Users\First Last\" is exactly
+# that: the path reached herdr-app split in two, and it refused the second half.
+function Quoted([string[]]$parts) {
+  ($parts | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' '
+}
+
+$check = Start-Process -FilePath $appPath -ArgumentList (Quoted @('check', $dst)) -NoNewWindow -Wait -PassThru
 if ($check.ExitCode -ne 0) {
   throw "herdr-app check failed on $dst (exit $($check.ExitCode)). The mod is installed; the layout was not switched."
 }
+Write-Host "check    -> passed"
 
 if (-not $NoSwitch) {
-  Start-Process -FilePath $appPath -ArgumentList @('do', 'layout.switch', '--name', 'cockpit') -NoNewWindow -Wait | Out-Null
+  Start-Process -FilePath $appPath -ArgumentList (Quoted @('do', 'layout.switch', '--name', 'cockpit')) -NoNewWindow -Wait | Out-Null
   Write-Host "layout   -> switched to cockpit"
 }

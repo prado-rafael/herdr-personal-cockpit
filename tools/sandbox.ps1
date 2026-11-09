@@ -56,6 +56,14 @@ function Get-App {
 # A failing `check` was therefore followed by the line saying it passed, and its
 # output arrived whenever it felt like it. -PassThru is the only way to read an
 # exit code here.
+#
+# The arguments are quoted by hand because -ArgumentList does not quote one
+# holding a space, and a sandbox under a path like "C:\Users\First Last\" is
+# exactly that: the path reaches herdr-app split in two.
+function Quoted([string[]]$parts) {
+  ($parts | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' '
+}
+
 function Invoke-App {
   param([string[]]$Arguments, [switch]$Quiet)
   $app = Get-App
@@ -66,7 +74,7 @@ function Invoke-App {
   $was = $env:HERDR_APP_HOME
   $env:HERDR_APP_HOME = $box
   try {
-    $ran = Start-Process -FilePath $app -ArgumentList $Arguments -NoNewWindow -Wait -PassThru `
+    $ran = Start-Process -FilePath $app -ArgumentList (Quoted $Arguments) -NoNewWindow -Wait -PassThru `
       -RedirectStandardOutput $out -RedirectStandardError $err
     $said = (Get-Content $out -Raw -ErrorAction SilentlyContinue)
     $complained = (Get-Content $err -Raw -ErrorAction SilentlyContinue)
