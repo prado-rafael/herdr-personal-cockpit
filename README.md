@@ -28,9 +28,11 @@ icon-and-count rail when their column is dragged narrow.
 ## The drawer on the edge
 
 Hanging off the left edge of the window is a 44px strip with a count: what is
-waiting on you across all four panels. Hover it and it slides out. With nothing
-waiting it is not there at all — the reward for being up to date is a clean
-edge.
+waiting on you across **My pull requests**, **Kraken Tasks** and **Routines**.
+**Team's pull requests stays in its own panel**: its rows do not appear in the
+drawer or count towards its badge, even when your review is requested. Hover the
+strip and it slides out. With nothing waiting it is not there at all — the reward
+for being up to date is a clean edge.
 
 It shows nothing the panels do not. What it adds is the order, and that it
 survives them: the panels divide the sidebar's height between them and all four
@@ -38,17 +40,16 @@ leave the screen the moment the sidebar is folded or a terminal is maximised.
 The drawer floats over the work area, so it is still there.
 
 Each panel can say "3 need you" about its own list, but only something looking
-at all four can say which to deal with first. So the rows are grouped by what
-the move actually is, worst first:
+across the included panels can say which to deal with first. So the rows are
+grouped by what the move actually is, worst first:
 
 | | What it is |
 |---|---|
 | **Fix** | a pull request of yours that cannot land: a red build, a conflict, changes requested |
-| **Review** | somebody asked for your review |
 | **Decide** | a task in the queue is parked on `needs-decision` or `awaiting-merge` |
 | **Configure** | `routines.yml` holds a routine that does not parse |
 
-Your own work stuck comes before somebody stuck on you, and inside a group the
+Your own work stuck comes before queue decisions, and inside a group the
 longest wait is first — the row most likely to have been forgotten. A click
 opens it in the browser; the one kind of row with nowhere to go, a routine whose
 file is wrong, says so instead of pretending to be a link. Past nine rows the

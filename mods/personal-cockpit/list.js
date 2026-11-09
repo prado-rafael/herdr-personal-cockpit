@@ -27,9 +27,9 @@ import * as issues from "./issues.js";
 import * as routines from "./routines.js";
 import * as team from "./team.js";
 
-/** The panels, by the `props.kind` that names one. Exported because the drawer
- *  draws every panel's urgent rows and this is the roster of panels there are
- *  -- it reads what each one published without running any of them. */
+/** The panels, by the `props.kind` that names one. Exported so the drawer can
+ *  select its sources from this roster and read their published urgent rows
+ *  without running any of them. */
 export const SOURCES = { pulls, issues, routines, team };
 
 // A mod command reaches every copy on screen, which is what makes `refresh`
