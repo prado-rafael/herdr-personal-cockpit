@@ -19,8 +19,7 @@
 
 import { div, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { layout, placement, shared, theme } from "herdr";
-import { RIGHT, find } from "./dock.js";
+import { placement, shared, theme } from "herdr";
 import { agoShort } from "./github.js";
 import { CELL, badge, row, sectionHead } from "./kit.js";
 import { SOURCES } from "./list.js";
@@ -39,11 +38,19 @@ const WIDTH = 320;
 // are the shortest waits, since merge() put the longest first.
 const SHOWN = 9;
 
-// Blocks that can occupy the right of the work area in the layout this mod
-// ships. A layout without them finds nothing, and the drawer stays put.
-const RIGHT_SIDE = [RIGHT, "panel"];
-
-const visible = (node) => Boolean(node) && node.hidden !== true;
+// There is one rule about when to draw, and it is the whole of it: something is
+// waiting, or it is not.
+//
+// An earlier version also stepped aside for a panel docked in `right-lists` and
+// for Herdr's files and changes panel, on the grounds that a drawer over a
+// panel is worse than no drawer. It is not. Hiding takes away the one thing
+// that would let somebody move it out of the way -- the strip they would drag
+// -- and it takes it away silently, so what they see is the drawer being
+// broken. Dock three panels to the right and it vanished for good.
+//
+// Overlapping is the lesser harm, and it is the one with a way out: the strip
+// is 44 px on an edge, and dragging it to the other one takes a second and is
+// remembered.
 
 export class Drawer {
   constructor(view, cx) {
@@ -167,11 +174,6 @@ export class Drawer {
     // On the top or bottom edge Herdr shows the whole block -- `peek` is for
     // the sides only -- so there is nothing for a strip to stand in front of.
     if (!place.vertical) return body;
-
-    // Dragged over a panel's own column, or Herdr's files and changes panel:
-    // the drawer would cover one instead of sitting beside it. Whatever it was
-    // about is counted in that panel's own header, so the drawer gives way.
-    if (place.edge === "right" && RIGHT_SIDE.some((id) => visible(find(layout(), id)))) return div().size(0);
 
     // The peek is whichever side is against the edge: the strip goes there and
     // the body opens inward. Both ways are drawn because both can happen --

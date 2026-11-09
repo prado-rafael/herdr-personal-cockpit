@@ -268,9 +268,10 @@ for all four panels, and The floating drawer. Everything on it is made up.
 - **A click on a drawer row** opens it in the browser. A Configure row has no
   page — a broken routine has no task — so it wires no click and takes no
   pointer: the gear in the Routines header is what opens the file.
-- **The drawer gives way** rather than overlapping: it draws nothing when it is
-  on the right edge and either `right-lists` or `panel` is visible. Whatever it
-  was about is counted in that panel's own header.
+- **The drawer never steps aside**, and that is deliberate. It reads nothing
+  about the rest of the window: not whether a panel is docked in `right-lists`,
+  not whether Herdr's files and changes panel is open. One rule decides whether
+  it draws, and it is whether anything is waiting.
 - **The gallery** opens on the mod command `personal-cockpit.kit`
   (`herdr-app do personal-cockpit.kit`) as a dialog overlay. A mod command
   reaches every copy on screen, so exactly one panel answers this one — the
@@ -518,10 +519,15 @@ adding a connection to one of these, and do not estimate.
   clean, which is the point; the cost is that somebody who has never seen it
   full does not know it is there. The README names it so the drawer does not
   have to.
-- **The ids the drawer steps aside for belong to this layout.** `right-lists`
-  and `panel` are looked up by name, and a layout without them finds nothing and
-  keeps the drawer — which is the right failure, but it means a layout that
-  calls its right column something else gets a drawer over it.
+- **Don't make the drawer step aside for what is behind it.** It was built that
+  way first: on the right edge it drew nothing while `right-lists` or `panel`
+  was visible, reasoning that a drawer over a panel is worse than no drawer and
+  the count is in that panel's header anyway. Docking three panels to the right
+  showed what that costs. The drawer vanished for good, with nothing on screen
+  to say why — and hiding takes away the one thing that would have fixed it, the
+  strip there is to drag. Overlapping is the lesser harm and the one with a way
+  out. The second half of the reasoning was wrong too: what the drawer adds is
+  the order *between* the panels, which no panel's header carries.
 - **The gallery must not read or write a panel's shared state.** Writing
   `cockpit.pulls.urgent` would poison the real drawer with made-up rows, and
   reading it would draw somebody's actual work into a screenshot. It takes its
@@ -619,8 +625,9 @@ adding a connection to one of these, and do not estimate.
   row takes no pointer and opens nothing.
 - Folding the sidebar away leaves the drawer where it was — which is the whole
   reason it is not in the sidebar.
-- Docking a panel into the right column makes the drawer disappear; moving it
-  back brings the drawer back.
+- Docking every panel into the right column leaves the drawer exactly where it
+  was, overlapping that column's edge. So does opening Herdr's files and
+  changes panel. Nothing but an empty list takes it off the screen.
 - Dragging the drawer to the left edge puts the strip on the left of the body,
   and Herdr still has it there after a restart.
 - `herdr-app do personal-cockpit.kit` opens the gallery **once**, not four

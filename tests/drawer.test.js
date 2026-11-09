@@ -174,35 +174,35 @@ test("in an ordinary block it fills the block and draws no strip", () => {
   assert.ok(callsOf(el, "size_full").length > 0, "an ordinary block should be filled");
 });
 
-// ---- getting out of the way ----------------------------------------------
+// ---- what is behind it does not decide ------------------------------------
 
-test("it gives way to a panel moved into the right column", () => {
-  // Both would be on the same edge, and the drawer would cover the panel
-  // rather than sit beside it. Whatever it was about is counted in that
-  // panel's own header anyway.
+// There is one rule about when to draw: something is waiting, or it is not.
+//
+// An earlier version also stepped aside for a panel docked in the right column
+// and for Herdr's files and changes panel. Docking three panels to the right
+// made the drawer vanish for good, with nothing on screen to say why and
+// nothing left to drag -- hiding removed the very affordance that would have
+// moved it out of the way. These are that lesson, written down.
+
+test("a panel docked in the right column does not hide it", () => {
   publish("pulls", [urgentRow()]);
   host.layout = tree({ sidebar: [], right: rightColumn([panelBlock("pulls")]) });
-  assertDrawsNothing(drawer().render());
-});
-
-test("an empty right column is hidden, so the drawer stays", () => {
-  // dock.js hides that column rather than removing it, to keep the width it
-  // was dragged to. A hidden one is not in anybody's way.
-  publish("pulls", [urgentRow()]);
-  host.layout = tree({ sidebar: [panelBlock("pulls")], right: { ...rightColumn([]), hidden: true } });
   assert.ok(textOf(drawer().render()).includes("Tidy the header"));
 });
 
-test("it gives way to Herdr's own files and changes panel", () => {
+test("Herdr's own files and changes panel does not hide it either", () => {
+  // The one most worth not hiding for: a diff is exactly when a review you
+  // have been asked for is worth knowing about.
   publish("pulls", [urgentRow()]);
   host.layout = tree({ sidebar: [panelBlock("pulls")], right: { id: "panel", type: "column", children: [] } });
-  assertDrawsNothing(drawer().render());
+  assert.ok(textOf(drawer().render()).includes("Tidy the header"));
 });
 
-test("on the left edge it ignores what is happening on the right", () => {
+test("it draws with no layout at all", () => {
+  // It stopped reading the tree when that rule went. Nothing about where the
+  // drawer draws depends on what else is in the window any more.
   publish("pulls", [urgentRow()]);
-  host.layout = tree({ sidebar: [], right: rightColumn([panelBlock("pulls")]) });
-  host.placement = placedAt("left");
+  host.layout = null;
   assert.ok(textOf(drawer().render()).includes("Tidy the header"));
 });
 

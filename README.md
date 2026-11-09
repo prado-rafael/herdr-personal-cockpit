@@ -49,9 +49,10 @@ opens it in the browser; the one kind of row with nowhere to go, a routine whose
 file is wrong, says so instead of pretending to be a link. Past nine rows the
 rest are counted rather than drawn.
 
-Drag the strip to the other edge and Herdr remembers it. It gets out of the way
-on its own when a panel is docked in the right column, or when Herdr's files and
-changes panel is open there.
+There is one rule about when it shows: something is waiting, or it is not. It
+does not step aside for a panel docked in the right column, or for Herdr's
+files and changes panel — if something needs you, you see it. Where it overlaps,
+drag the strip to the other edge and Herdr remembers it.
 
 ## Requirements
 
@@ -75,6 +76,13 @@ From a clone of this repo. **Copy the mod folder — do not link it.**
 Either one copies `mods/personal-cockpit` and `layouts/cockpit.json` into
 `~/.config/herdr-app` and switches to the layout. `ctrl-shift-l` cycles back to
 your own, and `ctrl-alt-shift-escape` always returns to the default `main`.
+
+**Reinstalling resets where you put the panels.** Moving a panel to the right
+column, or minimising one, is written straight back into `cockpit.json` — the
+same file the installer replaces. Pass `--no-layout` / `-NoLayout` to update
+the mod and leave your arrangement alone. It is only worth taking the new
+layout when this README says the layout itself changed, as it did for the
+drawer.
 
 > **Don't install it as a junction or a symlink.** It is tempting — the mod
 > hot-reloads as you edit, with no copy step. The JavaScript does load that
