@@ -80,24 +80,51 @@ test("junk in a shared key is ignored rather than drawn", () => {
   assert.deepEqual(textOf(el).includes("routine 1"), true);
 });
 
+test("persisted Team rows alone never show the drawer and are not deleted", () => {
+  const rows = [urgentRow({ key: "team:a#2", verb: "review", title: "theirs" })];
+  publish("team", rows);
+  const before = new Map(host.shared);
+  for (const place of [null, placedAt("top"), placedAt("left"), placedAt("right", { hovered: true })]) {
+    host.placement = place;
+    assertDrawsNothing(drawer().render());
+  }
+  assert.deepEqual(host.shared, before, "Team's published state must stay intact");
+});
+
+test("Team refreshes do not change the drawer's count, visible rows or overflow", () => {
+  publish("pulls", [urgentRow()]);
+  const current = drawer();
+  const before = textOf(current.render());
+  publish("team", Array.from({ length: 12 }, (_v, i) => urgentRow({
+    key: `team:a#${i}`, verb: "review", title: `team pr ${i}`, at: 1,
+  })));
+  assert.deepEqual(textOf(current.render()), before);
+  assert.equal(current.rows().length, 1);
+});
+
 // ---- what it draws --------------------------------------------------------
 
-test("it reads all four panels and heads each verb it found", () => {
+test("it reads the included panels and leaves Team out of the rows and total", () => {
   publish("pulls", [urgentRow({ key: "pulls:a#1", title: "mine" })]);
   publish("team", [urgentRow({ key: "team:a#2", verb: "review", title: "theirs", reason: "robin" })]);
   publish("issues", [urgentRow({ key: "issues:3", verb: "decide", title: "a task", reason: "needs-decision" })]);
   publish("routines", [urgentRow({ key: "routines:0-x", verb: "config", title: "routine 1", reason: "no title", url: null })]);
 
   const text = textOf(drawer().render());
-  for (const label of ["Fix", "Review", "Decide", "Configure"]) {
+  for (const label of ["Fix", "Decide", "Configure"]) {
     assert.ok(text.includes(label), `no ${label} heading`);
   }
-  for (const title of ["mine", "theirs", "a task", "routine 1"]) {
+  for (const title of ["mine", "a task", "routine 1"]) {
     assert.ok(text.includes(title), `no ${title} row`);
   }
   // The total, next to the drawer's own title.
   assert.equal(text[0], "Needs you");
-  assert.equal(text[1], "4");
+  assert.equal(text[1], "3");
+  assert.equal(text.includes("theirs"), false);
+  assert.equal(text.includes("Review"), false);
+
+  host.placement = placedAt("right", { hovered: false });
+  assert.deepEqual(textOf(drawer().render()), ["3"]);
 });
 
 test("the verbs are headed in urgent.js's order, whatever order the panels published in", () => {

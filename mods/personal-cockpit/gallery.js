@@ -167,7 +167,6 @@ const ROUTINES = [
 
 const DRAWER_ROWS = [
   { key: "pulls:acme/app#128", verb: "fix", title: "Keep the last good list when a refresh fails", reason: "lint failing", url: "https://github.com/acme/app/pull/128", at: Date.now() - 42 * 60_000 },
-  { key: "team:acme/app#311", verb: "review", title: "Cache the issue templates per repo", reason: "robin", url: "https://github.com/acme/app/pull/311", at: Date.now() - 9 * 60_000 },
   { key: "issues:77", verb: "decide", title: "Decide whether routines get a cron field", reason: "needs-decision", url: "https://github.com/acme/tasks/issues/77", at: Date.now() - 20 * 60_000 },
   { key: "routines:2-unnamed", verb: "config", title: "routine 3", reason: "routine 3 has no title", url: null, at: 0 },
 ];

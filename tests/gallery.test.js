@@ -66,9 +66,10 @@ test("the header bar is drawn in each of the states a panel can be in", () => {
 test("the drawer's own body is drawn, on rows of its own", () => {
   const text = textOf(render());
   assert.ok(text.includes("Needs you"));
-  for (const label of ["Fix", "Review", "Decide", "Configure"]) {
+  for (const label of ["Fix", "Decide", "Configure"]) {
     assert.ok(text.includes(label), `the drawer sample is missing ${label}`);
   }
+  assert.equal(text.includes("Review"), false, "Team reviews do not belong in the drawer sample");
 });
 
 test("it touches nothing real: no shared state read, none written", () => {
