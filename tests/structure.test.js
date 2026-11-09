@@ -243,6 +243,40 @@ test("every block running this mod asks for a kind the mod knows", () => {
   }
 });
 
+// ---- the recipe describes these files -------------------------------------
+
+test("the recipe's module count is the number of modules there are", () => {
+  // It has been wrong twice: "eleven modules" over a list of twelve, and then
+  // fourteen files described as twelve after kit.js was split. A build from the
+  // recipe is a build of whatever it says, so the count is load-bearing prose.
+  const WORDS = {
+    ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+    sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  };
+  const recipe = read(join(ROOT, "RECIPE.md"));
+  const [, word] = recipe.match(/One mod, ([a-z]+) modules/) ?? [];
+  assert.ok(word, "RECIPE.md no longer says how many modules this is");
+  assert.ok(word in WORDS, `"${word}" is not a number this test knows`);
+
+  const modules = readdirSync(MOD).filter((name) => name.endsWith(".js") && !name.endsWith(".d.ts"));
+  assert.equal(WORDS[word], modules.length, `the recipe says ${word}, the folder has ${modules.length}`);
+});
+
+test("every module the recipe lists is a file, and every file is listed", () => {
+  // The other half: a count can be right while the list under it names a file
+  // that was renamed, or misses one that was added.
+  const recipe = read(join(ROOT, "RECIPE.md"));
+  const listed = new Set([...recipe.matchAll(/^ {2}([a-z-]+\.js)\b/gm)].map(([, name]) => name));
+  const onDisk = readdirSync(MOD).filter((name) => name.endsWith(".js") && !name.endsWith(".d.ts"));
+
+  for (const name of onDisk) {
+    assert.ok(listed.has(name), `RECIPE.md's Built from does not mention ${name}`);
+  }
+  for (const name of listed) {
+    assert.ok(existsSync(join(MOD, name)), `RECIPE.md's Built from names ${name}, which is not there`);
+  }
+});
+
 test("the shipped layout hangs the drawer off an edge, with a peek", () => {
   // The strip the drawer draws is exactly `peek` wide: any other number and
   // the count sits half off the screen. drawer.js names it EDGE.
