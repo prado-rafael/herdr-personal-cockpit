@@ -10,9 +10,10 @@ network blips, minimises to its own header bar, and moves to the other side
 with one button. Click a row to open it in the browser.
 
 Hanging off the window's left edge, a 44 px strip with a count: what is waiting
-on you across all four, ordered by what the move actually is. It floats over the
-work area, so it is still there when the sidebar is folded — and with nothing
-waiting it is not drawn at all.
+on you across My pull requests, Kraken Tasks and Routines, ordered by what the
+move actually is. Team's pull requests remains in its own panel, excluded from
+the drawer and its count. The drawer floats over the work area, so it is still
+there when the sidebar is folded — and with nothing waiting it is not drawn at all.
 
 ![Personal Cockpit](preview.png)
 
@@ -134,12 +135,11 @@ at all — no strip, nothing on the edge.
   padding, 12 px above.
 - Then a group per kind of move, in this order and only when it has rows, each
   with the same 10 px semibold `dim` section head and `muted` count a panel
-  uses: **Fix**, **Review**, **Decide**, **Configure**.
+  uses: **Fix**, **Decide**, **Configure**.
 - Each **row** is the panels' own row, drawn by the same `row()`: an 11 px `●`
   in `blocked`, the title in 12 px `foreground`, the age in 10 px `dim`, and on
   the second line the one reason in 10.5 px `dim` — `conflicts`,
-  `changes requested` or `N failing` for Fix; the author's login for Review; the
-  label that parked it (`needs-decision`, `awaiting-merge`) for Decide; the
+  `changes requested` or `N failing` for Fix; the label that parked it (`needs-decision`, `awaiting-merge`) for Decide; the
   validation message for Configure.
 - Nine rows at most, then `+N more` in 10 px `dim`, 16 px in. Plain text, not a
   control.
@@ -262,16 +262,16 @@ for all four panels, and The floating drawer. Everything on it is made up.
 - **The drawer loads nothing.** Each panel writes what its own `urgent()`
   returned into `shared("cockpit.<panel>.urgent")` when a load lands — never
   from a render, since writing shared state asks for another one — and the
-  drawer only reads. So it costs no `gh` call, arrives by itself (a shared write
-  re-renders every mod), and cannot show a row no panel believes in. A panel
+  drawer only reads its included sources (not Team, even from persisted state).
+  So it costs no `gh` call, arrives by itself (a shared write re-renders every mod), and cannot show a row no panel believes in. A panel
   that cannot load, or has no repo chosen, publishes an empty list: its own
   trouble belongs in its own header, beside the button that fixes it. A refresh
   that failed over a good list leaves the panel's state `ok`, so those rows
   stay — the drawer goes stale exactly when the panel does.
 - **The order is the drawer's whole reason to exist.** Any panel can say
-  `3 needs you` about its own list; only something looking at all four can say
-  which to deal with first. Verbs come in the order above — your own work stuck,
-  then somebody stuck on you, then the queue waiting on a decision, then a file
+  `3 needs you` about its own list; only something looking across the included
+  panels can say which to deal with first. Verbs come in the order above — your
+  own work stuck, then the queue waiting on a decision, then a file
   of ours that is wrong — and inside a verb the longest wait is first, which is
   the opposite of how the panels sort their own lists. They are lists you read;
   this is a list you are nagged by, and the forgotten row is the one that sat
@@ -310,7 +310,7 @@ mods/personal-cockpit/
                and publishing its urgent rows for the drawer. Exports SOURCES,
                the roster of panels there are
   picker.js    the repo dialog
-  drawer.js    the floating drawer: reads every panel's published rows, decides
+  drawer.js    the floating drawer: reads included panels' published rows, decides
                whether to draw at all and which side the peek goes on.
                EDGE 44 (the layout's `peek` by hand), WIDTH 320, SHOWN 9
   gallery.js   every piece of chrome on made-up data, in one scroll
@@ -634,9 +634,10 @@ adding a connection to one of these, and do not estimate.
   no count, nothing to hover.
 - With a failing pull request of yours, a review requested of you, a task
   labelled `needs-decision` and a routine missing its Acceptance, the edge shows
-  a bell and `4`. Hovering it slides out `Needs you · 4` over the work area, with
-  **Fix**, **Review**, **Decide** and **Configure** in that order and one row
-  under each. Each row says the same thing its panel's row says.
+  a bell and `3`. Hovering it slides out `Needs you · 3` over the work area, with
+  **Fix**, **Decide** and **Configure** in that order and one row under each.
+  The Team review stays in its own panel and does not affect the drawer's count.
+  Each included row says the same thing its panel's row says.
 - A click on the Fix row opens that pull request in the browser. The Configure
   row takes no pointer and opens nothing.
 - Folding the sidebar away leaves the drawer where it was — which is the whole

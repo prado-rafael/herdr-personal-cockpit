@@ -1,4 +1,4 @@
-// "Needs you": every panel's urgent rows, on the window's edge.
+// "Needs you": selected panels' urgent rows, on the window's edge.
 //
 // The four panels live in the sidebar and divide its height between them, so
 // anything new there is taken from the other three -- and all four leave the
@@ -10,7 +10,7 @@
 //
 // It shows no information the panels do not. What it adds is the one thing none
 // of them can: each panel can say "3 need you" about its own list, but only
-// something looking at all four can say which to deal with first. urgent.js
+// something looking across panels can say which to deal with first. urgent.js
 // holds that order.
 //
 // Nothing is loaded here. The panels publish what they already judged (see
@@ -60,15 +60,17 @@ export class Drawer {
     this.handle = cx.focus_handle();
   }
 
-  /** Every panel's published rows as one ordered list. A panel that has never
-   *  loaded, or is not in the layout at all, has published nothing and
-   *  contributes nothing. */
+  /** Included panels' published rows as one ordered list. Team stays in its
+   *  own panel, not this drawer or its count. Filter before reading shared
+   *  state so persisted Team rows are excluded even before its next poll. */
   rows() {
     return merge(
-      Object.values(SOURCES).map((source) => {
-        const saved = shared(shareKey(source.panel));
-        return Array.isArray(saved) ? saved : [];
-      }),
+      Object.values(SOURCES)
+        .filter((source) => source.panel !== "team")
+        .map((source) => {
+          const saved = shared(shareKey(source.panel));
+          return Array.isArray(saved) ? saved : [];
+        }),
     );
   }
 
